@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  moneyprinter-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - MP_API_KEY=your_secret_key_here
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./.mp:/app/.mp
+      - ./Songs:/app/Songs
+      - ./config.json:/app/config.json
+    restart: always

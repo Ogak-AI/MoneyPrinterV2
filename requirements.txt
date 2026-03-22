@@ -16,3 +16,10 @@ faster-whisper
 srt_equalizer
 undetected_chromedriver
 platformdirs
+fastapi
+uvicorn
+pydantic
+httpx
+python-dotenv
+python-multipart
+websockets
