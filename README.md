@@ -1,3 +1,13 @@
+---
+title: MoneyPrinterV2
+emoji: 🖨️
+colorFrom: green
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # MoneyPrinter V2
  
 > ♥︎ **Sponsor**: The Best AI Chat App: [shiori.ai](https://www.shiori.ai). Use code **MPV2** for 20% off.
