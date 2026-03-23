@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose API port
-EXPOSE 8000
+EXPOSE 7860
 
 # Start Xvfb and then the API
 CMD ["sh", "-c", "Xvfb :99 -screen 0 1280x1024x24 & export DISPLAY=:99 && python src/api.py"]
