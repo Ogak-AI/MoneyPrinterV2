@@ -71,5 +71,5 @@ COPY . .
 EXPOSE 8000
 
 # Use Xvfb for headless browser automation
-# Note: Render provides the PORT env var automatically
-CMD ["sh", "-c", "Xvfb :99 -screen 0 1280x1024x24 & python src/api.py"]
+# Added cleanup for Xvfb lock files to prevent startup errors on restart
+CMD ["sh", "-c", "rm -f /tmp/.X99-lock && Xvfb :99 -screen 0 1280x1024x24 & python src/api.py"]
