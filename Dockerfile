@@ -36,8 +36,7 @@ WORKDIR /app
 
 # Use uv to install dependencies with cache mounts for speed
 COPY requirements.txt .
-RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
-    /uv/bin/uv pip install --system -r requirements.txt
+RUN /uv/bin/uv pip install --system -r requirements.txt
 
 # Copy the application code (respects .dockerignore)
 COPY . .
