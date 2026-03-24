@@ -3,7 +3,9 @@ import uuid
 import asyncio
 import schedule
 import subprocess
-from fastapi import FastAPI, BackgroundTasks, Header, HTTPException, Depends, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, BackgroundTasks, Header, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
 from typing import List, Optional
 from api_models import *
 from api_utils import *
@@ -15,8 +17,30 @@ from classes.Tts import TTS
 from utils import rem_temp_files, fetch_songs
 from config import assert_folder_structure, get_ollama_model
 from llm_provider import select_model
+from database import init_db, get_db_connection
+from auth_utils import get_password_hash, verify_password, create_access_token, decode_access_token
 
 app = FastAPI(title="MoneyPrinterV2 API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development and deployment ease
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    payload = decode_access_token(token)
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return payload
+
+@app.get("/api/auth/me", response_model=UserResponse)
+def get_me(current_user: dict = Depends(get_current_user)):
+    return {"id": current_user["id"], "email": current_user["sub"]}
 
 # Persistence for recurring schedules
 SCHEDULES_FILE = os.path.join(ROOT_DIR, ".mp", "schedules.json")
@@ -74,6 +98,7 @@ def verify_api_key(x_api_key: str = Header(None)):
 
 @app.on_event("startup")
 async def startup_event():
+    init_db()
     assert_folder_structure()
     rem_temp_files()
     fetch_songs()
@@ -86,11 +111,41 @@ async def startup_event():
     apply_schedules()
     asyncio.create_task(scheduler_loop())
 
+@app.post("/api/auth/register", response_model=UserResponse)
+def register(user: UserRegister):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        user_id = str(uuid.uuid4())
+        hashed_pw = get_password_hash(user.password)
+        cursor.execute("INSERT INTO users (id, email, hashed_password) VALUES (?, ?, ?)", 
+                       (user_id, user.email, hashed_pw))
+        conn.commit()
+        return {"id": user_id, "email": user.email}
+    except Exception:
+        raise HTTPException(status_code=400, detail="User already exists")
+    finally:
+        conn.close()
+
+@app.post("/api/auth/login")
+def login(user: UserLogin):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE email = ?", (user.email,))
+    db_user = cursor.fetchone()
+    conn.close()
+
+    if db_user is None or not verify_password(user.password, db_user["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    access_token = create_access_token(data={"sub": user.email, "id": db_user["id"]})
+    return {"access_token": access_token, "token_type": "bearer"}
+
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
 
-@app.get("/accounts/{provider}", response_model=List[AccountResponse], dependencies=[Depends(verify_api_key)])
+@app.get("/accounts/{provider}", response_model=List[AccountResponse], dependencies=[Depends(get_current_user)])
 def list_provider_accounts(provider: str):
     if provider not in ["youtube", "twitter"]:
         raise HTTPException(status_code=400, detail="Invalid provider")
@@ -103,7 +158,7 @@ def list_provider_accounts(provider: str):
         language=acc.get("language")
     ) for acc in accounts]
 
-@app.post("/accounts/youtube", dependencies=[Depends(verify_api_key)])
+@app.post("/accounts/youtube", dependencies=[Depends(get_current_user)])
 def register_youtube_account(acc: YouTubeAccount):
     account_id = str(uuid.uuid4())
     add_account("youtube", {
@@ -116,7 +171,7 @@ def register_youtube_account(acc: YouTubeAccount):
     })
     return {"id": account_id, "message": "Account registered"}
 
-@app.post("/accounts/twitter", dependencies=[Depends(verify_api_key)])
+@app.post("/accounts/twitter", dependencies=[Depends(get_current_user)])
 def register_twitter_account(acc: TwitterAccount):
     account_id = str(uuid.uuid4())
     add_account("twitter", {
@@ -128,7 +183,7 @@ def register_twitter_account(acc: TwitterAccount):
     })
     return {"id": account_id, "message": "Account registered"}
 
-@app.delete("/accounts/{provider}/{account_id}", dependencies=[Depends(verify_api_key)])
+@app.delete("/accounts/{provider}/{account_id}", dependencies=[Depends(get_current_user)])
 def delete_provider_account(provider: str, account_id: str):
     remove_account(provider, account_id)
     return {"message": "Account removed"}
@@ -209,35 +264,35 @@ async def run_afm_task(task_id: str, req: AFMCampaignRequest):
     except Exception as e:
         update_task(task_id, "failed", str(e))
 
-@app.post("/tasks/youtube/generate", response_model=TaskResponse, dependencies=[Depends(verify_api_key)])
+@app.post("/tasks/youtube/generate", response_model=TaskResponse, dependencies=[Depends(get_current_user)])
 def generate_youtube_video(req: YouTubeGenerateRequest, bg: BackgroundTasks):
     task_id = str(uuid.uuid4())
     update_task(task_id, "queued", "Task added to queue", webhook_url=req.webhook_url)
     bg.add_task(run_youtube_task, task_id, req)
     return TaskResponse(task_id=task_id, status="queued", message="Task started in background")
 
-@app.post("/tasks/twitter/post", response_model=TaskResponse, dependencies=[Depends(verify_api_key)])
+@app.post("/tasks/twitter/post", response_model=TaskResponse, dependencies=[Depends(get_current_user)])
 def post_to_twitter(req: TwitterPostRequest, bg: BackgroundTasks):
     task_id = str(uuid.uuid4())
     update_task(task_id, "queued", "Task added to queue", webhook_url=req.webhook_url)
     bg.add_task(run_twitter_task, task_id, req)
     return TaskResponse(task_id=task_id, status="queued", message="Task started in background")
 
-@app.post("/tasks/afm/run", response_model=TaskResponse, dependencies=[Depends(verify_api_key)])
+@app.post("/tasks/afm/run", response_model=TaskResponse, dependencies=[Depends(get_current_user)])
 def run_afm_campaign(req: AFMCampaignRequest, bg: BackgroundTasks):
     task_id = str(uuid.uuid4())
     update_task(task_id, "queued", "Task added to queue", webhook_url=req.webhook_url)
     bg.add_task(run_afm_task, task_id, req)
     return TaskResponse(task_id=task_id, status="queued", message="Task started in background")
 
-@app.get("/tasks/{task_id}", response_model=TaskResponse, dependencies=[Depends(verify_api_key)])
+@app.get("/tasks/{task_id}", response_model=TaskResponse, dependencies=[Depends(get_current_user)])
 def get_task_status(task_id: str):
     task = get_task(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     return TaskResponse(task_id=task_id, **task)
 
-@app.post("/schedule", dependencies=[Depends(verify_api_key)])
+@app.post("/schedule", dependencies=[Depends(get_current_user)])
 def add_recurring_schedule(req: ScheduleRequest):
     schedules = load_schedules()
     schedules.append(req.dict())
@@ -245,7 +300,7 @@ def add_recurring_schedule(req: ScheduleRequest):
     apply_schedules()
     return {"message": "Schedule added successfully"}
 
-@app.post("/webhooks/subscribe", dependencies=[Depends(verify_api_key)])
+@app.post("/webhooks/subscribe", dependencies=[Depends(get_current_user)])
 def subscribe_to_webhooks(sub: WebhookSubscription):
     add_webhook(sub.dict())
     return {"message": "Subscribed successfully"}

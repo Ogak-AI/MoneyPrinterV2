@@ -23,3 +23,6 @@ httpx
 python-dotenv
 python-multipart
 websockets
+PyJWT
+passlib[bcrypt]
+cryptography

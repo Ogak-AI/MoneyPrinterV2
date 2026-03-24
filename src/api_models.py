@@ -51,3 +51,19 @@ class ScheduleRequest(BaseModel):
     account_id: str
     frequency: str  # "once_a_day", "twice_a_day", "thrice_a_day"
     time: Optional[str] = None  # Specific time like "10:00" (optional)
+
+class UserRegister(BaseModel):
+    email: str
+    password: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
