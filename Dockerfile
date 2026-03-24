@@ -2,11 +2,12 @@
 FROM python:3.11-slim-bookworm
 
 # Avoid prompts from apt
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DISPLAY=:99
 
-# Install system dependencies and GeckoDriver in a single layer to save space
+# Combine all system and python installs into fewer layers to reduce image size
 RUN apt-get update && apt-get install -y --no-install-recommends \
     firefox-esr \
     wget \
@@ -34,15 +35,23 @@ RUN sed -i 's/domain="path" rights="none" pattern="@\*"/domain="path" rights="re
 
 WORKDIR /app
 
-# Use uv to install dependencies with cache mounts for speed
+# Copy requirements and install in a single step with cache cleaning
 COPY requirements.txt .
-RUN /uv/bin/uv pip install --system -r requirements.txt
+RUN /uv/bin/uv pip install --system --no-cache -r requirements.txt \
+    && rm -rf /root/.cache/uv \
+    && rm -rf /root/.cache/pip \
+    && find /usr/local/lib/python3.11/site-packages -name "*.pyc" -delete \
+    && find /usr/local/lib/python3.11/site-packages -name "__pycache__" -delete
 
-# Copy the application code (respects .dockerignore)
+# Copy the application code
 COPY . .
+
+# Final cleanup of any potential artifacts and docs to save space
+RUN rm -rf docs .git .github tests \
+    && find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 # Expose API port
 EXPOSE 7860
 
 # Use Xvfb for headless browser automation
-CMD ["sh", "-c", "Xvfb :99 -screen 0 1280x1024x24 & export DISPLAY=:99 && python src/api.py"]
+CMD ["sh", "-c", "Xvfb :99 -screen 0 1280x1024x24 & python src/api.py"]
