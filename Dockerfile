@@ -21,18 +21,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uv/bin/uv
 COPY requirements.txt .
 
 # Install dependencies
-# 1. Force CPU-only torch to save 2GB+
+# 1. Force CPU-only torch to save 2GB+ (Render typically uses CPUs for web services)
 # 2. Use uv to install the rest
-# 3. Manually remove any nvidia bloat that might have been pulled in
 RUN /uv/bin/uv pip install --system --no-cache torch torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     /uv/bin/uv pip install --system --no-cache -r requirements.txt && \
-    pip uninstall -y nvidia-cudnn-cu12 nvidia-cublas-cu12 nvidia-cuda-runtime-cu12 \
-                   nvidia-cuda-nvrtc-cu12 nvidia-cuda-cupti-cu12 nvidia-nvjitlink-cu12 \
-                   nvidia-curand-cu12 nvidia-cusolver-cu12 nvidia-cusparse-cu12 \
-                   nvidia-nccl-cu12 nvidia-nvtx-cu12 || true && \
-    rm -rf /root/.cache/uv /root/.cache/pip && \
-    find /usr/local/lib/python3.11/site-packages -name "*.pyc" -delete && \
-    find /usr/local/lib/python3.11/site-packages -name "__pycache__" -delete
+    rm -rf /root/.cache/uv /root/.cache/pip
 
 # --- Final Stage ---
 FROM python:3.11-slim-bookworm
@@ -40,8 +33,7 @@ FROM python:3.11-slim-bookworm
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    DISPLAY=:99 \
-    PORT=7860
+    DISPLAY=:99
 
 WORKDIR /app
 
@@ -75,11 +67,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY . .
 
-# Final aggressive cleanup
-RUN rm -rf docs .git .github tests assets/*.mp4 2>/dev/null || true && \
-    find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-
-EXPOSE 7860
+# Expose API port (Render will use its own, but we document 8000)
+EXPOSE 8000
 
 # Use Xvfb for headless browser automation
+# Note: Render provides the PORT env var automatically
 CMD ["sh", "-c", "Xvfb :99 -screen 0 1280x1024x24 & python src/api.py"]
