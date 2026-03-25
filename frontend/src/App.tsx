@@ -88,15 +88,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         </nav>
         
         <div className="p-4 border-t border-zinc-900 bg-zinc-900/20">
-          <div className="flex items-center gap-3 px-4 py-3 mb-2 rounded-xl bg-zinc-900/50 border border-zinc-800">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold">
-              {user?.email[0].toUpperCase()}
+          {user && (
+            <div className="flex items-center gap-3 px-4 py-3 mb-2 rounded-xl bg-zinc-900/50 border border-zinc-800">
+              <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold">
+                {user.email[0].toUpperCase()}
+              </div>
+              <div className="truncate flex-1">
+                <p className="text-sm font-bold text-zinc-100 truncate">{user.email.split('@')[0]}</p>
+                <p className="text-[10px] text-zinc-500 truncate uppercase tracking-tighter">Pro Member</p>
+              </div>
             </div>
-            <div className="truncate flex-1">
-              <p className="text-sm font-bold text-zinc-100 truncate">{user?.email.split('@')[0]}</p>
-              <p className="text-[10px] text-zinc-500 truncate uppercase tracking-tighter">Pro Member</p>
-            </div>
-          </div>
+          )}
           <button 
             onClick={logout}
             className="flex w-full items-center justify-center gap-3 px-3 py-3 rounded-xl text-zinc-500 hover:text-red-400 hover:bg-red-400/5 transition-all duration-200 text-sm font-medium"

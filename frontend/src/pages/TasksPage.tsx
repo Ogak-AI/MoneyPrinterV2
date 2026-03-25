@@ -12,7 +12,7 @@ interface Task {
   task_id: string;
   status: string;
   message: string;
-  provider: string;
+  provider?: string;
 }
 
 const TasksPage = () => {
