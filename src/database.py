@@ -1,6 +1,6 @@
 import sqlite3
 import os
-from constants import ROOT_DIR
+from config import ROOT_DIR
 
 DB_PATH = os.path.join(ROOT_DIR, ".mp", "users.db")
 

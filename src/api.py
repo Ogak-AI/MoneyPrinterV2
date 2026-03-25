@@ -15,7 +15,7 @@ from classes.Twitter import Twitter
 from classes.AFM import AffiliateMarketing
 from classes.Tts import TTS
 from utils import rem_temp_files, fetch_songs
-from config import assert_folder_structure, get_ollama_model
+from config import assert_folder_structure, get_ollama_model, ROOT_DIR
 from llm_provider import select_model
 from database import init_db, get_db_connection
 from auth_utils import get_password_hash, verify_password, create_access_token, decode_access_token
