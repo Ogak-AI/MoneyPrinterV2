@@ -4,8 +4,7 @@ import json
 import srt_equalizer
 
 from termcolor import colored
-
-ROOT_DIR = os.path.dirname(sys.path[0])
+from constants import ROOT_DIR
 
 # Global cache for configuration to avoid repeated file reads and handle missing file
 _CONFIG_CACHE = None
