@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
-import { Activity, Users, Play, CheckCircle, TrendingUp, ArrowUpRight, Youtube, Twitter, Loader2 } from 'lucide-react';
+import { Activity, Users, Play, CheckCircle, TrendingUp, ArrowUpRight, Youtube, Twitter } from 'lucide-react';
 
 interface Account {
   id: string;
@@ -17,7 +17,7 @@ interface Task {
 
 const Dashboard = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
