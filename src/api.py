@@ -1,5 +1,6 @@
 import os
 import uuid
+import sqlite3
 import asyncio
 import schedule
 import subprocess
@@ -24,13 +25,21 @@ app = FastAPI(title="MoneyPrinterV2 API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development and deployment ease
+    allow_origins=[
+        "http://localhost:5173",
+        "https://moneyprinterv2-ahg9t61yn-ogak-ais-projects.vercel.app",
+        "*"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+
+@app.get("/")
+def read_root():
+    return {"message": "MoneyPrinterV2 API is running", "docs": "/docs"}
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     payload = decode_access_token(token)
