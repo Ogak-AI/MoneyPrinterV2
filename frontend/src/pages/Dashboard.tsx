@@ -1,11 +1,82 @@
-import { Activity, Users, Play, CheckCircle, TrendingUp, ArrowUpRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import api from '../api/axios';
+import { Activity, Users, Play, CheckCircle, TrendingUp, ArrowUpRight, Youtube, Twitter, Loader2 } from 'lucide-react';
+
+interface Account {
+  id: string;
+  nickname: string;
+  provider: 'youtube' | 'twitter';
+}
+
+interface Task {
+  task_id: string;
+  status: string;
+  message: string;
+  provider?: string;
+}
 
 const Dashboard = () => {
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [yt, tw] = await Promise.all([
+          api.get('/accounts/youtube'),
+          api.get('/accounts/twitter')
+        ]);
+        
+        const allAccounts = [
+          ...yt.data.map((a: any) => ({ ...a, provider: 'youtube' })),
+          ...tw.data.map((a: any) => ({ ...a, provider: 'twitter' }))
+        ];
+        setAccounts(allAccounts);
+        
+        // In a real scenario, we might have a /tasks endpoint to get all recent tasks
+        // For now, we'll keep the tasks state from recent operations if available
+        // Or leave it empty if fresh load
+      } catch (err) {
+        console.error('Failed to fetch dashboard data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const activeTasksCount = tasks.filter(t => t.status === 'running' || t.status === 'queued').length;
+
   const stats = [
-    { label: 'ACTIVE CHANNELS', value: '12', icon: Users, color: 'text-emerald-500', trend: '+2 this week' },
-    { label: 'TASKS RUNNING', value: '03', icon: Play, color: 'text-emerald-400', trend: 'Optimal speed' },
-    { label: 'CONTENT PRINTED', value: '1,284', icon: CheckCircle, color: 'text-emerald-600', trend: 'Total lifetime' },
-    { label: 'SYSTEM UPTIME', value: '99.9%', icon: Activity, color: 'text-emerald-500', trend: 'All systems green' },
+    { 
+      label: 'ACTIVE ACCOUNTS', 
+      value: loading ? '...' : accounts.length.toString(), 
+      icon: Users, 
+      color: 'text-emerald-500', 
+      trend: `${accounts.filter(a => a.provider === 'youtube').length} YT / ${accounts.filter(a => a.provider === 'twitter').length} TW` 
+    },
+    { 
+      label: 'TASKS RUNNING', 
+      value: activeTasksCount.toString().padStart(2, '0'), 
+      icon: Play, 
+      color: 'text-emerald-400', 
+      trend: 'Real-time status' 
+    },
+    { 
+      label: 'CONTENT PRINTED', 
+      value: '1,284', // Placeholder until backend tracks total lifetime prints
+      icon: CheckCircle, 
+      color: 'text-emerald-600', 
+      trend: 'Total lifetime' 
+    },
+    { 
+      label: 'SYSTEM UPTIME', 
+      value: '99.9%', 
+      icon: Activity, 
+      color: 'text-emerald-500', 
+      trend: 'All systems green' 
+    },
   ];
 
   return (
@@ -47,59 +118,80 @@ const Dashboard = () => {
           
           <h3 className="text-2xl font-black text-white tracking-tight mb-8 flex items-center gap-3">
              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-             Active Automation Stream
+             Live Activity Feed
           </h3>
           
           <div className="space-y-6">
-            <div className="bg-zinc-950/50 border border-zinc-800/50 p-6 rounded-2xl flex items-center justify-between border-l-4 border-l-emerald-500">
-               <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center font-bold text-emerald-500">YT</div>
-                  <div>
-                    <p className="font-bold text-white text-sm">TechReviews_Shorts</p>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase">Rendering Video #402</p>
-                  </div>
+            {tasks.length === 0 ? (
+               <div className="py-20 text-center border-2 border-dashed border-zinc-800/50 rounded-3xl">
+                  <Activity className="w-10 h-10 text-zinc-800 mx-auto mb-4" />
+                  <p className="text-zinc-600 font-bold uppercase tracking-widest text-xs">No active automation detected</p>
                </div>
-               <div className="flex flex-col items-end">
-                  <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-md uppercase mb-2">Processing</span>
-                  <div className="w-24 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                    <div className="w-[65%] h-full bg-emerald-500 animate-pulse"></div>
-                  </div>
-               </div>
-            </div>
-
-            <div className="bg-zinc-950/50 border border-zinc-800/50 p-6 rounded-2xl flex items-center justify-between opacity-50">
-               <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center font-bold text-zinc-500">TW</div>
-                  <div>
-                    <p className="font-bold text-white text-sm">CryptoAlerts_Bot</p>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase">Scheduled for 14:00 GMT</p>
-                  </div>
-               </div>
-               <span className="text-[10px] font-black text-zinc-500 bg-zinc-800 px-2 py-1 rounded-md uppercase">Standby</span>
-            </div>
+            ) : (
+              tasks.slice(0, 3).map((task) => (
+                <div key={task.task_id} className="bg-zinc-950/50 border border-zinc-800/50 p-6 rounded-2xl flex items-center justify-between border-l-4 border-l-emerald-500">
+                   <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center font-bold ${task.provider === 'youtube' ? 'text-red-500' : 'text-blue-500'}`}>
+                        {task.provider === 'youtube' ? 'YT' : 'TW'}
+                      </div>
+                      <div>
+                        <p className="font-bold text-white text-sm">{task.message}</p>
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase">{task.status}</p>
+                      </div>
+                   </div>
+                   <div className="flex flex-col items-end">
+                      <span className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-md uppercase mb-2">
+                        {task.status === 'running' ? 'Processing' : task.status}
+                      </span>
+                      {task.status === 'running' && (
+                        <div className="w-24 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="w-[65%] h-full bg-emerald-500 animate-pulse"></div>
+                        </div>
+                      )}
+                   </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
         
         <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-[2.5rem] p-10 flex flex-col justify-between group">
           <div>
-            <h3 className="text-2xl font-black text-white tracking-tight mb-4">Print Capacity</h3>
-            <p className="text-zinc-500 text-sm leading-relaxed mb-8">
-              Your system is currently utilizing 24% of its total printing capacity. 
-              Add more accounts to scale your cashflow.
-            </p>
+            <h3 className="text-2xl font-black text-white tracking-tight mb-4">Account Status</h3>
+            <div className="space-y-4 mt-8">
+              <div className="flex items-center justify-between p-4 bg-zinc-950/50 rounded-2xl border border-zinc-800">
+                <div className="flex items-center gap-3">
+                  <Youtube className="w-5 h-5 text-red-500" />
+                  <span className="text-xs font-bold text-white">YouTube</span>
+                </div>
+                <span className="text-xs font-black text-zinc-400">{accounts.filter(a => a.provider === 'youtube').length}</span>
+              </div>
+              <div className="flex items-center justify-between p-4 bg-zinc-950/50 rounded-2xl border border-zinc-800">
+                <div className="flex items-center gap-3">
+                  <Twitter className="w-5 h-5 text-blue-400" />
+                  <span className="text-xs font-bold text-white">Twitter</span>
+                </div>
+                <span className="text-xs font-black text-zinc-400">{accounts.filter(a => a.provider === 'twitter').length}</span>
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 mt-8">
             <div className="flex justify-between items-end mb-2">
-              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Efficiency</span>
-              <span className="text-2xl font-black text-white">88%</span>
+              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Network Load</span>
+              <span className="text-2xl font-black text-white">
+                {loading ? '...' : Math.min(100, accounts.length * 10)}%
+              </span>
             </div>
             <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden">
-               <div className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 w-[88%] group-hover:animate-pulse transition-all"></div>
+               <div 
+                className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-1000"
+                style={{ width: `${loading ? 0 : Math.min(100, accounts.length * 10)}%` }}
+               ></div>
             </div>
-            <button className="w-full mt-6 bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-4 rounded-2xl text-xs uppercase tracking-[0.2em] transition-all">
-              Upgrade Terminal
-            </button>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase text-center mt-2">
+              Scale your cashflow by adding more operators
+            </p>
           </div>
         </div>
       </div>
