@@ -122,8 +122,11 @@ def register(user: UserRegister):
                        (user_id, user.email, hashed_pw))
         conn.commit()
         return {"id": user_id, "email": user.email}
-    except Exception:
-        raise HTTPException(status_code=400, detail="User already exists")
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    except Exception as e:
+        print(f"Registration error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during registration")
     finally:
         conn.close()
 

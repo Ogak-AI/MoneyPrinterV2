@@ -25,7 +25,7 @@ const RegisterPage = () => {
       await api.post('/api/auth/register', { email, password });
       navigate('/login');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Registration failed. User might already exist.');
+      setError(err.response?.data?.detail || 'An unexpected error occurred during registration. Please try again.');
     } finally {
       setLoading(false);
     }
