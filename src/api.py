@@ -23,6 +23,9 @@ from auth_utils import get_password_hash, verify_password, create_access_token, 
 
 app = FastAPI(title="MoneyPrinterV2 API", version="1.0.0")
 
+# Ensure DB is initialized immediately on load
+init_db()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
