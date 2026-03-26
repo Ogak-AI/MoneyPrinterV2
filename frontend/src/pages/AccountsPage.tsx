@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../api/axios';
-import { Youtube, Twitter, Plus, Trash2, ShieldCheck, Globe, ChevronRight, UserCircle } from 'lucide-react';
+import { Youtube, Twitter, Plus, Trash2, ShieldCheck, Globe, UserCircle } from 'lucide-react';
 
 interface Account {
   id: string;

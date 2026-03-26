@@ -191,7 +191,7 @@ const TasksPage = () => {
                     </div>
                     <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest flex items-center gap-2">
                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                       Service Provider: {task.provider.toUpperCase()}
+                       Service Provider: {task.provider?.toUpperCase()}
                     </p>
                   </div>
                 </div>

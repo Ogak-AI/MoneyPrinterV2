@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/axios';
-import { Lock, Mail, AlertCircle, PlayCircle, UserPlus } from 'lucide-react';
+import { Lock, Mail, AlertCircle, UserPlus } from 'lucide-react';
 
 const RegisterPage = () => {
   const [email, setEmail] = useState('');

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Activity, Users, Play, CheckCircle, TrendingUp, ArrowUpRight } from 'lucide-react';
 
 const Dashboard = () => {
