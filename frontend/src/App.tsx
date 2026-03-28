@@ -6,6 +6,9 @@ import { LogOut, LayoutDashboard, UserCircle, Briefcase, PlayCircle, ChevronRigh
 // Lazy loading pages
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const RegisterPage = React.lazy(() => import('./pages/RegisterPage'));
+const VerifyPage = React.lazy(() => import('./pages/VerifyPage'));
+const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const AccountsPage = React.lazy(() => import('./pages/AccountsPage'));
 const TasksPage = React.lazy(() => import('./pages/TasksPage'));
@@ -142,6 +145,21 @@ function App() {
       <Route path="/register" element={
         <React.Suspense fallback={null}>
           <RegisterPage />
+        </React.Suspense>
+      } />
+      <Route path="/verify" element={
+        <React.Suspense fallback={null}>
+          <VerifyPage />
+        </React.Suspense>
+      } />
+      <Route path="/forgot-password" element={
+        <React.Suspense fallback={null}>
+          <ForgotPasswordPage />
+        </React.Suspense>
+      } />
+      <Route path="/reset-password" element={
+        <React.Suspense fallback={null}>
+          <ResetPasswordPage />
         </React.Suspense>
       } />
       
