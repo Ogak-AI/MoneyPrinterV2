@@ -166,6 +166,94 @@ def login(user: UserLogin):
     access_token = create_access_token(data={"sub": user.email, "id": db_user["id"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.get("/api/auth/verify", response_model=VerificationResponse)
+def verify_email(token: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE verification_token = ?", (token,))
+    user = cursor.fetchone()
+    
+    if user is None:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Invalid verification token")
+    
+    cursor.execute("UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?", (user["id"],))
+    conn.commit()
+    conn.close()
+    
+    return {"message": "Email verified successfully", "success": True}
+
+@app.post("/api/auth/resend-verification")
+def resend_verification(req: PasswordResetRequest, bg: BackgroundTasks):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE email = ?", (req.email,))
+    user = cursor.fetchone()
+    
+    if user is None:
+        conn.close()
+        # Return success even if user not found for security
+        return {"message": "If the email exists, a new verification link has been sent."}
+    
+    if user["is_verified"]:
+        conn.close()
+        return {"message": "Email is already verified."}
+    
+    verification_token = generate_secure_token()
+    cursor.execute("UPDATE users SET verification_token = ? WHERE id = ?", (verification_token, user["id"]))
+    conn.commit()
+    conn.close()
+    
+    bg.add_task(send_verification_email, user["email"], verification_token)
+    
+    return {"message": "If the email exists, a new verification link has been sent."}
+
+@app.post("/api/auth/reset-password/request")
+def request_password_reset(req: PasswordResetRequest, bg: BackgroundTasks):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE email = ?", (req.email,))
+    user = cursor.fetchone()
+    
+    if user:
+        reset_token = generate_secure_token()
+        expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+        
+        cursor.execute("UPDATE users SET reset_token = ?, reset_token_expires_at = ? WHERE id = ?", 
+                       (reset_token, expires_at, user["id"]))
+        conn.commit()
+        
+        bg.add_task(send_password_reset_email, user["email"], reset_token)
+    
+    conn.close()
+    # Always return success to prevent email enumeration
+    return {"message": "If the email exists, a password reset link has been sent."}
+
+@app.post("/api/auth/reset-password/confirm")
+def confirm_password_reset(req: PasswordResetConfirm):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE reset_token = ?", (req.token,))
+    user = cursor.fetchone()
+    
+    if user is None:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    
+    # Check expiration
+    expires_at = user["reset_token_expires_at"]
+    if expires_at and datetime.fromisoformat(expires_at) < datetime.utcnow():
+        conn.close()
+        raise HTTPException(status_code=400, detail="Reset token has expired")
+    
+    hashed_pw = get_password_hash(req.new_password)
+    cursor.execute("UPDATE users SET hashed_password = ?, reset_token = NULL, reset_token_expires_at = NULL WHERE id = ?", 
+                   (hashed_pw, user["id"]))
+    conn.commit()
+    conn.close()
+    
+    return {"message": "Password reset successfully"}
+
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
