@@ -11,6 +11,10 @@ def generate_secure_token() -> str:
     """Generates a secure random token for email verification or password reset."""
     return secrets.token_urlsafe(32)
 
+def generate_otp() -> str:
+    """Generates a 6-digit numeric OTP."""
+    return "".join(secrets.choice("0123456789") for _ in range(6))
+
 # Use environment variable for secret key, default for development
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production")
 ALGORITHM = "HS256"

@@ -6,10 +6,10 @@ from config import get_email_credentials, ROOT_DIR
 # In production, this should be the actual frontend URL
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
-def send_verification_email(receiver_email: str, token: str):
+def send_verification_email(receiver_email: str, token: str, otp: str = None):
     creds = get_email_credentials()
     if not creds.get("username") or not creds.get("password"):
-        print(f"Warning: Email credentials not set. Verification token for {receiver_email} is: {token}")
+        print(f"Warning: Email credentials not set. Verification token for {receiver_email} is: {token} (OTP: {otp})")
         return False
 
     yag = yagmail.SMTP(
@@ -19,13 +19,17 @@ def send_verification_email(receiver_email: str, token: str):
         port=creds["smtp_port"],
     )
 
-    verification_link = f"{FRONTEND_URL}/verify?token={token}"
+    verification_link = f"{FRONTEND_URL}/verify?token={token}&email={receiver_email}"
     
     subject = "Verify your MoneyPrinterV2 account"
     contents = [
         f"<h1>Welcome to MoneyPrinterV2!</h1>",
-        f"<p>Please click the link below to verify your email address:</p>",
+        f"<p>Thank you for joining. Please verify your email using one of the following methods:</p>",
+        f"<h2>Method 1: Click the Link</h2>",
         f"<p><a href='{verification_link}'>{verification_link}</a></p>",
+        f"<h2>Method 2: Use OTP</h2>",
+        f"<p>Enter the following 6-digit code on the verification page:</p>",
+        f"<p style='font-size: 24px; font-weight: bold; letter-spacing: 5px;'>{otp}</p>",
         f"<p>If you didn't create an account, you can safely ignore this email.</p>"
     ]
 

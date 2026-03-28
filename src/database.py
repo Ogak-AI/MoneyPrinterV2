@@ -16,6 +16,7 @@ def init_db():
             hashed_password TEXT NOT NULL,
             is_verified INTEGER DEFAULT 0,
             verification_token TEXT,
+            verification_otp TEXT,
             reset_token TEXT,
             reset_token_expires_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -26,6 +27,7 @@ def init_db():
     columns = [
         ("is_verified", "INTEGER DEFAULT 0"),
         ("verification_token", "TEXT"),
+        ("verification_otp", "TEXT"),
         ("reset_token", "TEXT"),
         ("reset_token_expires_at", "TIMESTAMP")
     ]
