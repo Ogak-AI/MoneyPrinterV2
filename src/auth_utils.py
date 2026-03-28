@@ -1,8 +1,15 @@
 import os
 import jwt
 import bcrypt
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
+
+# ... rest of constants ...
+
+def generate_secure_token() -> str:
+    """Generates a secure random token for email verification or password reset."""
+    return secrets.token_urlsafe(32)
 
 # Use environment variable for secret key, default for development
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production")

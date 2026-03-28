@@ -19,7 +19,8 @@ from utils import rem_temp_files, fetch_songs
 from config import assert_folder_structure, get_ollama_model, ROOT_DIR
 from llm_provider import select_model
 from database import init_db, get_db_connection
-from auth_utils import get_password_hash, verify_password, create_access_token, decode_access_token
+from auth_utils import get_password_hash, verify_password, create_access_token, decode_access_token, generate_secure_token
+from email_utils import send_verification_email, send_password_reset_email
 
 app = FastAPI(title="MoneyPrinterV2 API", version="1.0.0")
 
@@ -124,15 +125,21 @@ async def startup_event():
     asyncio.create_task(scheduler_loop())
 
 @app.post("/api/auth/register", response_model=UserResponse)
-def register(user: UserRegister):
+def register(user: UserRegister, bg: BackgroundTasks):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         user_id = str(uuid.uuid4())
         hashed_pw = get_password_hash(user.password)
-        cursor.execute("INSERT INTO users (id, email, hashed_password) VALUES (?, ?, ?)", 
-                       (user_id, user.email, hashed_pw))
+        verification_token = generate_secure_token()
+        
+        cursor.execute("INSERT INTO users (id, email, hashed_password, is_verified, verification_token) VALUES (?, ?, ?, ?, ?)", 
+                       (user_id, user.email, hashed_pw, 0, verification_token))
         conn.commit()
+        
+        # Send verification email in background
+        bg.add_task(send_verification_email, user.email, verification_token)
+        
         return {"id": user_id, "email": user.email}
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="User with this email already exists")
@@ -152,6 +159,9 @@ def login(user: UserLogin):
 
     if db_user is None or not verify_password(user.password, db_user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not db_user["is_verified"]:
+        raise HTTPException(status_code=403, detail="Email not verified. Please check your inbox.")
 
     access_token = create_access_token(data={"sub": user.email, "id": db_user["id"]})
     return {"access_token": access_token, "token_type": "bearer"}

@@ -14,9 +14,29 @@ def init_db():
             id TEXT PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             hashed_password TEXT NOT NULL,
+            is_verified INTEGER DEFAULT 0,
+            verification_token TEXT,
+            reset_token TEXT,
+            reset_token_expires_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    
+    # Migration: Add columns if they don't exist
+    columns = [
+        ("is_verified", "INTEGER DEFAULT 0"),
+        ("verification_token", "TEXT"),
+        ("reset_token", "TEXT"),
+        ("reset_token_expires_at", "TIMESTAMP")
+    ]
+    
+    for col_name, col_type in columns:
+        try:
+            cursor.execute(f"ALTER TABLE users ADD COLUMN {col_name} {col_type}")
+        except sqlite3.OperationalError:
+            # Column already exists
+            pass
+
     conn.commit()
     
     # Verify table existence

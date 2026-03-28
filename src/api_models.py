@@ -67,3 +67,14 @@ class Token(BaseModel):
 class UserResponse(BaseModel):
     id: str
     email: str
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+class VerificationResponse(BaseModel):
+    message: str
+    success: bool
