@@ -4,6 +4,7 @@ import { useAuthStore } from './store/authStore';
 import { LogOut, LayoutDashboard, UserCircle, Briefcase, PlayCircle, ChevronRight } from 'lucide-react';
 
 // Lazy loading pages
+const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const RegisterPage = React.lazy(() => import('./pages/RegisterPage'));
 const VerifyPage = React.lazy(() => import('./pages/VerifyPage'));
@@ -129,14 +130,32 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 };
 
 function App() {
-  const { initialize } = useAuthStore();
+  const { user, isInitialized, initialize } = useAuthStore();
   
   useEffect(() => {
     initialize();
   }, [initialize]);
 
+  if (!isInitialized) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-zinc-950 text-emerald-500">
+        <div className="animate-pulse font-black tracking-widest uppercase">Initializing MoneyPrinter Engine...</div>
+      </div>
+    );
+  }
+
   return (
     <Routes>
+      <Route path="/" element={
+        user ? (
+          <Layout><Dashboard /></Layout>
+        ) : (
+          <React.Suspense fallback={null}>
+            <LandingPage />
+          </React.Suspense>
+        )
+      } />
+      
       <Route path="/login" element={
         <React.Suspense fallback={null}>
           <LoginPage />
@@ -161,12 +180,6 @@ function App() {
         <React.Suspense fallback={null}>
           <ResetPasswordPage />
         </React.Suspense>
-      } />
-      
-      <Route path="/" element={
-        <ProtectedRoute>
-          <Layout><Dashboard /></Layout>
-        </ProtectedRoute>
       } />
       
       <Route path="/accounts" element={
