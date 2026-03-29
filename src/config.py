@@ -69,12 +69,18 @@ def get_first_time_running() -> bool:
 
 def get_email_credentials() -> dict:
     """
-    Gets the email credentials from the config file.
+    Gets the email credentials from the config file, with fallback to environment variables.
 
     Returns:
         credentials (dict): The email credentials
     """
-    return _get_config().get("email", {"smtp_server": "smtp.gmail.com", "smtp_port": 587, "username": "", "password": ""})
+    config_email = _get_config().get("email", {})
+    return {
+        "smtp_server": config_email.get("smtp_server") or os.environ.get("SMTP_SERVER", "smtp.gmail.com"),
+        "smtp_port": int(config_email.get("smtp_port") or os.environ.get("SMTP_PORT", 587)),
+        "username": config_email.get("username") or os.environ.get("SMTP_USERNAME", ""),
+        "password": config_email.get("password") or os.environ.get("SMTP_PASSWORD", "")
+    }
 
 def get_verbose() -> bool:
     """
