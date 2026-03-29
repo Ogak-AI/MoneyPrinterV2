@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { 
   PlayCircle, 
@@ -99,14 +98,14 @@ const LandingPage = () => {
               </div>
               {/* Fake Content */}
               <div className="flex-1 p-8 font-mono text-xs text-emerald-500/80 space-y-2 text-left">
-                <p>> Initializing MoneyPrinterV2 Engine...</p>
+                <p>&gt; Initializing MoneyPrinterV2 Engine...</p>
                 <p className="text-zinc-500">[SYSTEM] Connecting to YouTube API... SUCCESS</p>
                 <p className="text-zinc-500">[SYSTEM] Connecting to Twitter X API... SUCCESS</p>
-                <p>> Analyzing viral trends in "Finance" niche...</p>
-                <p className="text-white font-bold">> Found 12 high-potential hooks. Generating scripts...</p>
-                <p>> Rendering video content #001... [||||||||||||||--------] 65%</p>
+                <p>&gt; Analyzing viral trends in "Finance" niche...</p>
+                <p className="text-white font-bold">&gt; Found 12 high-potential hooks. Generating scripts...</p>
+                <p>&gt; Rendering video content #001... [||||||||||||||--------] 65%</p>
                 <p className="text-zinc-500">[BOT-01] Scheduled post to @ChannelName at 18:00 UTC</p>
-                <p className="text-emerald-400 animate-pulse">> PRINTING PROFIT...</p>
+                <p className="text-emerald-400 animate-pulse">&gt; PRINTING PROFIT...</p>
               </div>
             </div>
           </div>

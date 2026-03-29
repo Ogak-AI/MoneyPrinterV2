@@ -109,7 +109,7 @@ const LoginPage = () => {
             </button>
             
             <div className="pt-4 flex flex-col items-center gap-3">
-              <Link to="/forgot-password" size="sm" className="text-[10px] font-bold text-zinc-600 hover:text-emerald-500 transition-colors uppercase tracking-[0.1em]">
+              <Link to="/forgot-password"  className="text-[10px] font-bold text-zinc-600 hover:text-emerald-500 transition-colors uppercase tracking-[0.1em]">
                 Forgot Access Key?
               </Link>
               <Link to="/register" className="text-xs font-medium text-zinc-500 hover:text-emerald-400 transition-colors">
