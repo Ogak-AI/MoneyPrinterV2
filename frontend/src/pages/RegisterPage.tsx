@@ -23,7 +23,8 @@ const RegisterPage = () => {
     
     try {
       await api.post('/api/auth/register', { email, password });
-      navigate('/login');
+      // Redirect to verification page with email pre-filled
+      navigate(`/verify?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'An unexpected error occurred during registration. Please try again.');
     } finally {

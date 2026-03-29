@@ -19,7 +19,7 @@ from utils import rem_temp_files, fetch_songs
 from config import assert_folder_structure, get_ollama_model, ROOT_DIR
 from llm_provider import select_model
 from database import init_db, get_db_connection
-from auth_utils import get_password_hash, verify_password, create_access_token, decode_access_token, generate_secure_token
+from auth_utils import get_password_hash, verify_password, create_access_token, decode_access_token, generate_secure_token, generate_otp
 from email_utils import send_verification_email, send_password_reset_email
 
 app = FastAPI(title="MoneyPrinterV2 API", version="1.0.0")
@@ -27,11 +27,15 @@ app = FastAPI(title="MoneyPrinterV2 API", version="1.0.0")
 # Ensure DB is initialized immediately on load
 init_db()
 
+# Use environment variable for frontend URL, with fallbacks for development and your specific Vercel URL
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "https://moneyprinterv2-ahg9t61yn-ogak-ais-projects.vercel.app",
+        FRONTEND_URL,
         "*"
     ],
     allow_credentials=True,
@@ -132,13 +136,14 @@ def register(user: UserRegister, bg: BackgroundTasks):
         user_id = str(uuid.uuid4())
         hashed_pw = get_password_hash(user.password)
         verification_token = generate_secure_token()
+        verification_otp = generate_otp()
         
-        cursor.execute("INSERT INTO users (id, email, hashed_password, is_verified, verification_token) VALUES (?, ?, ?, ?, ?)", 
-                       (user_id, user.email, hashed_pw, 0, verification_token))
+        cursor.execute("INSERT INTO users (id, email, hashed_password, is_verified, verification_token, verification_otp) VALUES (?, ?, ?, ?, ?, ?)", 
+                       (user_id, user.email, hashed_pw, 0, verification_token, verification_otp))
         conn.commit()
         
         # Send verification email in background
-        bg.add_task(send_verification_email, user.email, verification_token)
+        bg.add_task(send_verification_email, user.email, verification_token, verification_otp)
         
         return {"id": user_id, "email": user.email}
     except sqlite3.IntegrityError:
@@ -177,7 +182,24 @@ def verify_email(token: str):
         conn.close()
         raise HTTPException(status_code=400, detail="Invalid verification token")
     
-    cursor.execute("UPDATE users SET is_verified = 1, verification_token = NULL WHERE id = ?", (user["id"],))
+    cursor.execute("UPDATE users SET is_verified = 1, verification_token = NULL, verification_otp = NULL WHERE id = ?", (user["id"],))
+    conn.commit()
+    conn.close()
+    
+    return {"message": "Email verified successfully", "success": True}
+
+@app.post("/api/auth/verify-otp", response_model=VerificationResponse)
+def verify_otp(req: OTPVerifyRequest):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE email = ? AND verification_otp = ?", (req.email, req.otp))
+    user = cursor.fetchone()
+    
+    if user is None:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Invalid OTP or email")
+    
+    cursor.execute("UPDATE users SET is_verified = 1, verification_token = NULL, verification_otp = NULL WHERE id = ?", (user["id"],))
     conn.commit()
     conn.close()
     
@@ -200,11 +222,12 @@ def resend_verification(req: PasswordResetRequest, bg: BackgroundTasks):
         return {"message": "Email is already verified."}
     
     verification_token = generate_secure_token()
-    cursor.execute("UPDATE users SET verification_token = ? WHERE id = ?", (verification_token, user["id"]))
+    verification_otp = generate_otp()
+    cursor.execute("UPDATE users SET verification_token = ?, verification_otp = ? WHERE id = ?", (verification_token, verification_otp, user["id"]))
     conn.commit()
     conn.close()
     
-    bg.add_task(send_verification_email, user["email"], verification_token)
+    bg.add_task(send_verification_email, user["email"], verification_token, verification_otp)
     
     return {"message": "If the email exists, a new verification link has been sent."}
 
