@@ -7,7 +7,6 @@ import { LogOut, LayoutDashboard, UserCircle, Briefcase, PlayCircle, ChevronRigh
 const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
 const RegisterPage = React.lazy(() => import('./pages/RegisterPage'));
-const VerifyPage = React.lazy(() => import('./pages/VerifyPage'));
 const ForgotPasswordPage = React.lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -164,11 +163,6 @@ function App() {
       <Route path="/register" element={
         <React.Suspense fallback={null}>
           <RegisterPage />
-        </React.Suspense>
-      } />
-      <Route path="/verify" element={
-        <React.Suspense fallback={null}>
-          <VerifyPage />
         </React.Suspense>
       } />
       <Route path="/forgot-password" element={

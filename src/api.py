@@ -19,8 +19,8 @@ from utils import rem_temp_files, fetch_songs
 from config import assert_folder_structure, get_ollama_model, ROOT_DIR
 from llm_provider import select_model
 from database import init_db, get_db_connection
-from auth_utils import get_password_hash, verify_password, create_access_token, decode_access_token, generate_secure_token, generate_otp
-from email_utils import send_verification_email, send_password_reset_email
+from auth_utils import get_password_hash, verify_password, create_access_token, decode_access_token, generate_secure_token
+from email_utils import send_password_reset_email
 
 app = FastAPI(title="MoneyPrinterV2 API", version="1.0.0")
 
@@ -129,21 +129,16 @@ async def startup_event():
     asyncio.create_task(scheduler_loop())
 
 @app.post("/api/auth/register", response_model=UserResponse)
-def register(user: UserRegister, bg: BackgroundTasks):
+def register(user: UserRegister):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         user_id = str(uuid.uuid4())
         hashed_pw = get_password_hash(user.password)
-        verification_token = generate_secure_token()
-        verification_otp = generate_otp()
         
-        cursor.execute("INSERT INTO users (id, email, hashed_password, is_verified, verification_token, verification_otp) VALUES (?, ?, ?, ?, ?, ?)", 
-                       (user_id, user.email, hashed_pw, 0, verification_token, verification_otp))
+        cursor.execute("INSERT INTO users (id, email, hashed_password, is_verified, verification_token, verification_otp) VALUES (?, ?, ?, ?, NULL, NULL)", 
+                       (user_id, user.email, hashed_pw, 1))
         conn.commit()
-        
-        # Send verification email in background
-        bg.add_task(send_verification_email, user.email, verification_token, verification_otp)
         
         return {"id": user_id, "email": user.email}
     except sqlite3.IntegrityError:
@@ -165,71 +160,10 @@ def login(user: UserLogin):
     if db_user is None or not verify_password(user.password, db_user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if not db_user["is_verified"]:
-        raise HTTPException(status_code=403, detail="Email not verified. Please check your inbox.")
-
     access_token = create_access_token(data={"sub": user.email, "id": db_user["id"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.get("/api/auth/verify", response_model=VerificationResponse)
-def verify_email(token: str):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE verification_token = ?", (token,))
-    user = cursor.fetchone()
-    
-    if user is None:
-        conn.close()
-        raise HTTPException(status_code=400, detail="Invalid verification token")
-    
-    cursor.execute("UPDATE users SET is_verified = 1, verification_token = NULL, verification_otp = NULL WHERE id = ?", (user["id"],))
-    conn.commit()
-    conn.close()
-    
-    return {"message": "Email verified successfully", "success": True}
 
-@app.post("/api/auth/verify-otp", response_model=VerificationResponse)
-def verify_otp(req: OTPVerifyRequest):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ? AND verification_otp = ?", (req.email, req.otp))
-    user = cursor.fetchone()
-    
-    if user is None:
-        conn.close()
-        raise HTTPException(status_code=400, detail="Invalid OTP or email")
-    
-    cursor.execute("UPDATE users SET is_verified = 1, verification_token = NULL, verification_otp = NULL WHERE id = ?", (user["id"],))
-    conn.commit()
-    conn.close()
-    
-    return {"message": "Email verified successfully", "success": True}
-
-@app.post("/api/auth/resend-verification")
-def resend_verification(req: PasswordResetRequest, bg: BackgroundTasks):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ?", (req.email,))
-    user = cursor.fetchone()
-    
-    if user is None:
-        conn.close()
-        # Return success even if user not found for security
-        return {"message": "If the email exists, a new verification link has been sent."}
-    
-    if user["is_verified"]:
-        conn.close()
-        return {"message": "Email is already verified."}
-    
-    verification_token = generate_secure_token()
-    verification_otp = generate_otp()
-    cursor.execute("UPDATE users SET verification_token = ?, verification_otp = ? WHERE id = ?", (verification_token, verification_otp, user["id"]))
-    conn.commit()
-    conn.close()
-    
-    bg.add_task(send_verification_email, user["email"], verification_token, verification_otp)
-    
-    return {"message": "If the email exists, a new verification link has been sent."}
 
 @app.post("/api/auth/reset-password/request")
 def request_password_reset(req: PasswordResetRequest, bg: BackgroundTasks):

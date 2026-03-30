@@ -115,9 +115,6 @@ const LoginPage = () => {
               <Link to="/register" className="text-xs font-medium text-zinc-500 hover:text-emerald-400 transition-colors">
                 NEW OPERATOR? <span className="text-emerald-500 font-bold ml-1">REGISTER HERE</span>
               </Link>
-              <Link to="/verify" className="text-[10px] font-medium text-zinc-600 hover:text-zinc-400 transition-colors uppercase">
-                Need to <span className="underline decoration-zinc-700">verify email</span>?
-              </Link>
             </div>
           </form>
         </div>
