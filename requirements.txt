@@ -27,3 +27,4 @@ websockets
 PyJWT
 bcrypt
 cryptography
+psycopg2-binary

@@ -1,6 +1,5 @@
 import os
 import uuid
-import sqlite3
 import asyncio
 import schedule
 import subprocess
@@ -141,9 +140,10 @@ def register(user: UserRegister):
         conn.commit()
         
         return {"id": user_id, "email": user.email}
-    except sqlite3.IntegrityError:
-        raise HTTPException(status_code=400, detail="User with this email already exists")
     except Exception as e:
+        err = str(e).lower()
+        if "unique" in err or "duplicate" in err:
+            raise HTTPException(status_code=400, detail="User with this email already exists")
         print(f"Registration error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error during registration")
     finally:
