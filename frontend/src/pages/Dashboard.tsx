@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../api/axios';
-import { Activity, Users, Play, CheckCircle, TrendingUp, ArrowUpRight, Youtube, Twitter } from 'lucide-react';
+import { Activity, Users, Play, TrendingUp, ArrowUpRight, Youtube, Twitter } from 'lucide-react';
 
 interface Account {
   id: string;
@@ -63,20 +63,6 @@ const Dashboard = () => {
       color: 'text-emerald-400', 
       trend: 'Real-time status' 
     },
-    { 
-      label: 'CONTENT PRINTED', 
-      value: '1,284', // Placeholder until backend tracks total lifetime prints
-      icon: CheckCircle, 
-      color: 'text-emerald-600', 
-      trend: 'Total lifetime' 
-    },
-    { 
-      label: 'SYSTEM UPTIME', 
-      value: '99.9%', 
-      icon: Activity, 
-      color: 'text-emerald-500', 
-      trend: 'All systems green' 
-    },
   ];
 
   return (
@@ -95,7 +81,7 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {stats.map((stat, i) => (
           <div key={i} className="group relative bg-zinc-900/40 border border-zinc-800/50 p-8 rounded-[2rem] hover:border-emerald-500/30 transition-all duration-300">
             <div className={`mb-6 p-3 w-fit rounded-2xl bg-zinc-950/50 border border-zinc-800 group-hover:scale-110 transition-transform duration-300 ${stat.color}`}>
