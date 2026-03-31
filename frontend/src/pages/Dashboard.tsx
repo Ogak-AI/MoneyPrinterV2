@@ -19,6 +19,7 @@ const Dashboard = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [tasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,12 +34,13 @@ const Dashboard = () => {
           ...tw.data.map((a: any) => ({ ...a, provider: 'twitter' }))
         ];
         setAccounts(allAccounts);
-        
-        // In a real scenario, we might have a /tasks endpoint to get all recent tasks
-        // For now, we'll keep the tasks state from recent operations if available
-        // Or leave it empty if fresh load
-      } catch (err) {
-        console.error('Failed to fetch dashboard data', err);
+        setApiError(false);
+      } catch (err: any) {
+        // Only set apiError for non-401 errors (401 is handled by the interceptor)
+        if (err?.response?.status !== 401) {
+          console.warn('Backend not reachable — showing empty state:', err?.message);
+          setApiError(true);
+        }
       } finally {
         setLoading(false);
       }
@@ -77,9 +79,18 @@ const Dashboard = () => {
         </div>
         <div className="text-right hidden md:block">
           <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Network Status</p>
-          <p className="text-emerald-500 text-sm font-black tracking-tighter">OPERATIONAL</p>
+          <p className={`text-sm font-black tracking-tighter ${apiError ? 'text-amber-500' : 'text-emerald-500'}`}>
+            {apiError ? 'BACKEND OFFLINE' : 'OPERATIONAL'}
+          </p>
         </div>
       </header>
+
+      {apiError && (
+        <div className="flex items-center gap-3 px-6 py-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold uppercase tracking-widest">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          Backend API is unreachable. Check your Render service and environment variables (SUPABASE_JWT_SECRET, DATABASE_URL).
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {stats.map((stat, i) => (
