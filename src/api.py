@@ -185,19 +185,19 @@ def _decode_supabase_token(token: str):
                 print(f"Token validation error (RS256, kid={jwk.get('kid')}): {e}")
         return None
     else:
-        # HS256 — use the JWT secret
+        # Fallback to symmetric validation with JWT secret
         if not SUPABASE_JWT_SECRET:
-            print("WARNING: SUPABASE_JWT_SECRET not set — HS256 validation will fail.")
+            print("WARNING: SUPABASE_JWT_SECRET not set — validation will fail.")
             return None
         try:
             return jwt.decode(
                 token,
                 SUPABASE_JWT_SECRET,
-                algorithms=["HS256"],
+                algorithms=[alg, "HS256"],
                 audience="authenticated",
             )
         except Exception as e:
-            print(f"Token validation error (HS256): {e}")
+            print(f"Token validation error (alg={alg}): {e} | Header: {header}")
             return None
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
