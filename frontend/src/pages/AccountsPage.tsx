@@ -19,8 +19,8 @@ const AccountsPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'youtube' | 'twitter'>('youtube');
   const [submitting, setSubmitting] = useState(false);
-  const [youtubeAuthStep, setYoutubeAuthStep] = useState<1 | 2>(1);
-  const [youtubeAuthUrl, setYoutubeAuthUrl] = useState('');
+  const [authStep, setAuthStep] = useState<1 | 2>(1);
+  const [authUrl, setAuthUrl] = useState('');
   
   // Form Data
   const [formData, setFormData] = useState({
@@ -28,12 +28,9 @@ const AccountsPage = () => {
     niche: '',
     language: 'English',
     topic: '',
-    client_secrets_json: '',
     auth_code: '',
-    api_key: '',
-    api_secret: '',
-    access_token: '',
-    access_token_secret: ''
+    oauth_token: '',
+    oauth_token_secret: ''
   });
 
   const fetchAccounts = async () => {
@@ -71,40 +68,42 @@ const AccountsPage = () => {
       niche: '',
       language: 'English',
       topic: '',
-      client_secrets_json: '',
       auth_code: '',
-      api_key: '',
-      api_secret: '',
-      access_token: '',
-      access_token_secret: ''
+      oauth_token: '',
+      oauth_token_secret: ''
     });
-    setYoutubeAuthStep(1);
-    setYoutubeAuthUrl('');
+    setAuthStep(1);
+    setAuthUrl('');
   };
 
   const handleTwitterSubmit = async () => {
-    await api.post('/accounts/twitter', {
-      nickname: formData.nickname,
-      topic: formData.topic,
-      api_key: formData.api_key,
-      api_secret: formData.api_secret,
-      access_token: formData.access_token,
-      access_token_secret: formData.access_token_secret
-    });
+    if (authStep === 1) {
+      const res = await api.post('/accounts/twitter/init');
+      setAuthUrl(res.data.auth_url);
+      setFormData({...formData, oauth_token: res.data.oauth_token, oauth_token_secret: res.data.oauth_token_secret});
+      setAuthStep(2);
+      return false;
+    } else {
+      await api.post('/accounts/twitter/verify', {
+        nickname: formData.nickname,
+        topic: formData.topic,
+        pin: formData.auth_code,
+        oauth_token: formData.oauth_token,
+        oauth_token_secret: formData.oauth_token_secret
+      });
+      return true;
+    }
   };
 
   const handleYoutubeSubmit = async () => {
-    if (youtubeAuthStep === 1) {
-      const res = await api.post('/accounts/youtube/init', {
-        client_secrets_json: formData.client_secrets_json
-      });
-      setYoutubeAuthUrl(res.data.auth_url);
-      setYoutubeAuthStep(2);
+    if (authStep === 1) {
+      const res = await api.post('/accounts/youtube/init');
+      setAuthUrl(res.data.auth_url);
+      setAuthStep(2);
       return false; // don't close modal
     } else {
       await api.post('/accounts/youtube/verify', {
         nickname: formData.nickname,
-        client_secrets_json: formData.client_secrets_json,
         auth_code: formData.auth_code,
         niche: formData.niche,
         language: formData.language
@@ -296,16 +295,17 @@ const AccountsPage = () => {
             </div>
 
             <form onSubmit={handleCreateAccount} className="space-y-6">
-              {activeTab === 'youtube' && youtubeAuthStep === 2 ? (
+              {authStep === 2 ? (
                 <div className="space-y-6">
                   <div className="p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
                     <h4 className="text-emerald-500 font-bold mb-2">Step 2: Authorize Application</h4>
                     <p className="text-sm text-zinc-400 mb-4">
-                      Click the link below to securely authorize the MoneyPrinterV2 bot with your YouTube Account. 
-                      Copy the resulting Authorization Code and paste it here.
+                      {activeTab === 'youtube' 
+                        ? "Click the link below to securely authorize the MoneyPrinterV2 bot with your YouTube Account. Copy the resulting Authorization Code and paste it here." 
+                        : "Click the link below to authorize the bot with your Twitter Account. Copy the resulting PIN and paste it here."}
                     </p>
                     <a 
-                      href={youtubeAuthUrl} 
+                      href={authUrl} 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="inline-block px-4 py-2 bg-zinc-900 border border-emerald-500/30 rounded-xl text-emerald-400 font-bold hover:bg-zinc-800 transition-colors"
@@ -315,7 +315,9 @@ const AccountsPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Authorization Code</label>
+                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">
+                      {activeTab === 'youtube' ? 'Authorization Code' : 'Authorization PIN'}
+                    </label>
                     <input
                       required
                       type="text"
@@ -368,19 +370,6 @@ const AccountsPage = () => {
                           />
                         </div>
                       </div>
-                      
-                      <div>
-                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Client Secrets JSON</label>
-                        <p className="text-xs text-zinc-500 mb-3 ml-1">Paste the contents of your Google Desktop / Web App client_secret.json here.</p>
-                        <textarea
-                          required
-                          placeholder='{"web":{"client_id":"...","project_id":"..."}}'
-                          value={formData.client_secrets_json}
-                          onChange={(e) => setFormData({...formData, client_secrets_json: e.target.value})}
-                          rows={6}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800 font-mono text-xs"
-                        />
-                      </div>
                     </div>
                   ) : (
                     <div className="space-y-6">
@@ -395,53 +384,6 @@ const AccountsPage = () => {
                           className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
                         />
                       </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 bg-blue-500/5 border border-blue-500/20 rounded-2xl">
-                        <div className="col-span-full">
-                           <h4 className="text-blue-500 font-bold mb-1">Twitter Developer Auth</h4>
-                           <p className="text-xs text-zinc-400">Provide your app's keys with Read/Write OAuth 1.0a permissions</p>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">API Key</label>
-                          <input
-                            required
-                            type="password"
-                            value={formData.api_key}
-                            onChange={(e) => setFormData({...formData, api_key: e.target.value})}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">API Secret</label>
-                          <input
-                            required
-                            type="password"
-                            value={formData.api_secret}
-                            onChange={(e) => setFormData({...formData, api_secret: e.target.value})}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Access Token</label>
-                          <input
-                            required
-                            type="password"
-                            value={formData.access_token}
-                            onChange={(e) => setFormData({...formData, access_token: e.target.value})}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Access Token Secret</label>
-                          <input
-                            required
-                            type="password"
-                            value={formData.access_token_secret}
-                            onChange={(e) => setFormData({...formData, access_token_secret: e.target.value})}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none transition-all"
-                          />
-                        </div>
-                      </div>
                     </div>
                   )}
                 </>
@@ -453,9 +395,8 @@ const AccountsPage = () => {
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl font-black tracking-tighter transition-all active:scale-[0.98] mt-4 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
               >
                 {submitting ? 'PROCESSING...' : 
-                 activeTab === 'youtube' && youtubeAuthStep === 1 ? 'GET AUTHORIZATION LINK' :
-                 activeTab === 'youtube' && youtubeAuthStep === 2 ? 'VERIFY OAUTH AND SAVE' : 
-                 'LINK TWITTER APP'}
+                 authStep === 1 ? 'GET AUTHORIZATION LINK' :
+                 'VERIFY OAUTH AND SAVE'}
               </button>
             </form>
           </div>

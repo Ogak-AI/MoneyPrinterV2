@@ -415,3 +415,21 @@ def get_post_bridge_config() -> dict:
             raw_config.get("auto_crosspost", defaults["auto_crosspost"])
         ),
     }
+
+def get_google_client_secrets_json() -> str:
+    """
+    Gets the master Google client_secret.json string from environment variables.
+    """
+    return os.environ.get("GOOGLE_CLIENT_SECRETS_JSON", "")
+
+def get_twitter_api_key() -> str:
+    """
+    Gets the master Twitter API Key (Consumer Key).
+    """
+    return os.environ.get("TWITTER_API_KEY", "")
+
+def get_twitter_api_secret() -> str:
+    """
+    Gets the master Twitter API Secret (Consumer Secret).
+    """
+    return os.environ.get("TWITTER_API_SECRET", "")

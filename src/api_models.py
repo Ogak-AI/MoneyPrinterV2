@@ -1,20 +1,13 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
-class TwitterAccount(BaseModel):
+class TwitterOAuthVerifyRequest(BaseModel):
     nickname: str
-    api_key: str
-    api_secret: str
-    access_token: str
-    access_token_secret: str
     topic: str
+    pin: str
 
-class YouTubeOAuthInitRequest(BaseModel):
-    client_secrets_json: str
-
-class YouTubeAccountVerifyRequest(BaseModel):
+class YouTubeOAuthVerifyRequest(BaseModel):
     nickname: str
-    client_secrets_json: str
     auth_code: str
     niche: str
     language: str

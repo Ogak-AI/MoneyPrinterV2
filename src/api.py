@@ -238,10 +238,13 @@ def list_provider_accounts(provider: str):
     ) for acc in accounts]
 
 @app.post("/accounts/youtube/init", dependencies=[Depends(get_current_user)])
-def youtube_init_oauth(req: YouTubeOAuthInitRequest):
+def youtube_init_oauth():
     try:
         from google_auth_oauthlib.flow import Flow
-        client_config = json.loads(req.client_secrets_json)
+        client_secrets_json = get_google_client_secrets_json()
+        if not client_secrets_json:
+            raise HTTPException(status_code=500, detail="Server missing Google Client Secrets.")
+        client_config = json.loads(client_secrets_json)
         flow = Flow.from_client_config(
             client_config,
             scopes=["https://www.googleapis.com/auth/youtube.upload"]
@@ -253,10 +256,13 @@ def youtube_init_oauth(req: YouTubeOAuthInitRequest):
         raise HTTPException(status_code=400, detail=f"Failed to generate Auth URL: {str(e)}")
 
 @app.post("/accounts/youtube/verify", dependencies=[Depends(get_current_user)])
-def youtube_verify_oauth(req: YouTubeAccountVerifyRequest):
+def youtube_verify_oauth(req: YouTubeOAuthVerifyRequest):
     try:
         from google_auth_oauthlib.flow import Flow
-        client_config = json.loads(req.client_secrets_json)
+        client_secrets_json = get_google_client_secrets_json()
+        if not client_secrets_json:
+            raise HTTPException(status_code=500, detail="Server missing Google Client Secrets.")
+        client_config = json.loads(client_secrets_json)
         flow = Flow.from_client_config(
             client_config,
             scopes=["https://www.googleapis.com/auth/youtube.upload"]
@@ -287,20 +293,52 @@ def youtube_verify_oauth(req: YouTubeAccountVerifyRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"OAuth verification failed: {str(e)}")
 
-@app.post("/accounts/twitter", dependencies=[Depends(get_current_user)])
-def register_twitter_account(acc: TwitterAccount):
-    account_id = str(uuid.uuid4())
-    add_account("twitter", {
-        "id": account_id,
-        "nickname": acc.nickname,
-        "api_key": acc.api_key,
-        "api_secret": acc.api_secret,
-        "access_token": acc.access_token,
-        "access_token_secret": acc.access_token_secret,
-        "topic": acc.topic,
-        "posts": []
-    })
-    return {"id": account_id, "message": "Twitter Account registered"}
+@app.post("/accounts/twitter/init", dependencies=[Depends(get_current_user)])
+def twitter_init_oauth():
+    try:
+        import tweepy
+        api_key = get_twitter_api_key()
+        api_secret = get_twitter_api_secret()
+        if not api_key or not api_secret:
+            raise HTTPException(status_code=500, detail="Server missing Twitter Developer Keys.")
+        
+        handler = tweepy.OAuth1UserHandler(api_key, api_secret, callback='oob')
+        auth_url = handler.get_authorization_url()
+        return {
+            "auth_url": auth_url,
+            "oauth_token": handler.request_token["oauth_token"],
+            "oauth_token_secret": handler.request_token["oauth_token_secret"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to generate Twitter Auth URL: {str(e)}")
+
+@app.post("/accounts/twitter/verify", dependencies=[Depends(get_current_user)])
+def twitter_verify_oauth(req: TwitterOAuthVerifyRequest):
+    try:
+        import tweepy
+        api_key = get_twitter_api_key()
+        api_secret = get_twitter_api_secret()
+        
+        handler = tweepy.OAuth1UserHandler(api_key, api_secret)
+        handler.request_token = {
+            "oauth_token": req.oauth_token,
+            "oauth_token_secret": req.oauth_token_secret
+        }
+        
+        access_token, access_token_secret = handler.get_access_token(req.pin)
+        
+        account_id = str(uuid.uuid4())
+        add_account("twitter", {
+            "id": account_id,
+            "nickname": req.nickname,
+            "access_token": access_token,
+            "access_token_secret": access_token_secret,
+            "topic": req.topic,
+            "tweets": []
+        })
+        return {"id": account_id, "message": "Twitter Account registered successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Twitter Auth verification failed: {str(e)}")
 
 @app.delete("/accounts/{provider}/{account_id}", dependencies=[Depends(get_current_user)])
 def delete_provider_account(provider: str, account_id: str):
@@ -352,8 +390,8 @@ async def run_twitter_task(task_id: str, req: TwitterPostRequest):
         tw = Twitter(
             account_uuid=account["id"],
             account_nickname=account["nickname"],
-            api_key=account.get("api_key"),
-            api_secret=account.get("api_secret"),
+            api_key=get_twitter_api_key(),
+            api_secret=get_twitter_api_secret(),
             access_token=account.get("access_token"),
             access_token_secret=account.get("access_token_secret"),
             topic=account["topic"]
@@ -380,8 +418,8 @@ async def run_afm_task(task_id: str, req: AFMCampaignRequest):
             account["id"],
             account["nickname"],
             account["topic"],
-            api_key=account.get("api_key"),
-            api_secret=account.get("api_secret"),
+            api_key=get_twitter_api_key(),
+            api_secret=get_twitter_api_secret(),
             access_token=account.get("access_token"),
             access_token_secret=account.get("access_token_secret")
         )
