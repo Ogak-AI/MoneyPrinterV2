@@ -237,18 +237,55 @@ def list_provider_accounts(provider: str):
         language=acc.get("language")
     ) for acc in accounts]
 
-@app.post("/accounts/youtube", dependencies=[Depends(get_current_user)])
-def register_youtube_account(acc: YouTubeAccount):
-    account_id = str(uuid.uuid4())
-    add_account("youtube", {
-        "id": account_id,
-        "nickname": acc.nickname,
-        "firefox_profile": acc.firefox_profile,
-        "niche": acc.niche,
-        "language": acc.language,
-        "videos": []
-    })
-    return {"id": account_id, "message": "Account registered"}
+@app.post("/accounts/youtube/init", dependencies=[Depends(get_current_user)])
+def youtube_init_oauth(req: YouTubeOAuthInitRequest):
+    try:
+        from google_auth_oauthlib.flow import Flow
+        client_config = json.loads(req.client_secrets_json)
+        flow = Flow.from_client_config(
+            client_config,
+            scopes=["https://www.googleapis.com/auth/youtube.upload"]
+        )
+        flow.redirect_uri = f"{FRONTEND_URL}/oauth-callback"
+        auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline')
+        return {"auth_url": auth_url}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to generate Auth URL: {str(e)}")
+
+@app.post("/accounts/youtube/verify", dependencies=[Depends(get_current_user)])
+def youtube_verify_oauth(req: YouTubeAccountVerifyRequest):
+    try:
+        from google_auth_oauthlib.flow import Flow
+        client_config = json.loads(req.client_secrets_json)
+        flow = Flow.from_client_config(
+            client_config,
+            scopes=["https://www.googleapis.com/auth/youtube.upload"]
+        )
+        flow.redirect_uri = f"{FRONTEND_URL}/oauth-callback"
+        flow.fetch_token(code=req.auth_code)
+        
+        credentials = flow.credentials
+        creds_data = {
+            'token': credentials.token,
+            'refresh_token': credentials.refresh_token,
+            'token_uri': credentials.token_uri,
+            'client_id': credentials.client_id,
+            'client_secret': credentials.client_secret,
+            'scopes': credentials.scopes
+        }
+
+        account_id = str(uuid.uuid4())
+        add_account("youtube", {
+            "id": account_id,
+            "nickname": req.nickname,
+            "credentials": creds_data,
+            "niche": req.niche,
+            "language": req.language,
+            "videos": []
+        })
+        return {"id": account_id, "message": "YouTube Account registered and authorized"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"OAuth verification failed: {str(e)}")
 
 @app.post("/accounts/twitter", dependencies=[Depends(get_current_user)])
 def register_twitter_account(acc: TwitterAccount):
@@ -256,11 +293,14 @@ def register_twitter_account(acc: TwitterAccount):
     add_account("twitter", {
         "id": account_id,
         "nickname": acc.nickname,
-        "firefox_profile": acc.firefox_profile,
+        "api_key": acc.api_key,
+        "api_secret": acc.api_secret,
+        "access_token": acc.access_token,
+        "access_token_secret": acc.access_token_secret,
         "topic": acc.topic,
         "posts": []
     })
-    return {"id": account_id, "message": "Account registered"}
+    return {"id": account_id, "message": "Twitter Account registered"}
 
 @app.delete("/accounts/{provider}/{account_id}", dependencies=[Depends(get_current_user)])
 def delete_provider_account(provider: str, account_id: str):
@@ -278,11 +318,11 @@ async def run_youtube_task(task_id: str, req: YouTubeGenerateRequest):
             return
 
         yt = YouTube(
-            account["id"],
-            account["nickname"],
-            account["firefox_profile"],
-            req.niche or account["niche"],
-            req.language or account["language"]
+            account_uuid=account["id"],
+            account_nickname=account["nickname"],
+            credentials=account["credentials"],
+            niche=req.niche or account["niche"],
+            language=req.language or account["language"]
         )
         
         update_task(task_id, "running", "Generating video content...")
@@ -309,7 +349,15 @@ async def run_twitter_task(task_id: str, req: TwitterPostRequest):
             update_task(task_id, "failed", f"Account {req.account_id} not found")
             return
 
-        tw = Twitter(account["id"], account["nickname"], account["firefox_profile"], account["topic"])
+        tw = Twitter(
+            account_uuid=account["id"],
+            account_nickname=account["nickname"],
+            api_key=account.get("api_key"),
+            api_secret=account.get("api_secret"),
+            access_token=account.get("access_token"),
+            access_token_secret=account.get("access_token_secret"),
+            topic=account["topic"]
+        )
         
         update_task(task_id, "running", "Posting to Twitter...")
         tw.post(text=req.text)
@@ -329,10 +377,13 @@ async def run_afm_task(task_id: str, req: AFMCampaignRequest):
 
         afm = AffiliateMarketing(
             req.affiliate_link,
-            account["firefox_profile"],
             account["id"],
             account["nickname"],
-            account["topic"]
+            account["topic"],
+            api_key=account.get("api_key"),
+            api_secret=account.get("api_secret"),
+            access_token=account.get("access_token"),
+            access_token_secret=account.get("access_token_secret")
         )
         
         update_task(task_id, "running", "Generating and sharing pitch...")

@@ -19,14 +19,21 @@ const AccountsPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'youtube' | 'twitter'>('youtube');
   const [submitting, setSubmitting] = useState(false);
+  const [youtubeAuthStep, setYoutubeAuthStep] = useState<1 | 2>(1);
+  const [youtubeAuthUrl, setYoutubeAuthUrl] = useState('');
   
   // Form Data
   const [formData, setFormData] = useState({
     nickname: '',
-    firefox_profile: '',
     niche: '',
     language: 'English',
-    topic: ''
+    topic: '',
+    client_secrets_json: '',
+    auth_code: '',
+    api_key: '',
+    api_secret: '',
+    access_token: '',
+    access_token_secret: ''
   });
 
   const fetchAccounts = async () => {
@@ -58,37 +65,73 @@ const AccountsPage = () => {
     }
   };
 
+  const resetForm = () => {
+    setFormData({
+      nickname: '',
+      niche: '',
+      language: 'English',
+      topic: '',
+      client_secrets_json: '',
+      auth_code: '',
+      api_key: '',
+      api_secret: '',
+      access_token: '',
+      access_token_secret: ''
+    });
+    setYoutubeAuthStep(1);
+    setYoutubeAuthUrl('');
+  };
+
+  const handleTwitterSubmit = async () => {
+    await api.post('/accounts/twitter', {
+      nickname: formData.nickname,
+      topic: formData.topic,
+      api_key: formData.api_key,
+      api_secret: formData.api_secret,
+      access_token: formData.access_token,
+      access_token_secret: formData.access_token_secret
+    });
+  };
+
+  const handleYoutubeSubmit = async () => {
+    if (youtubeAuthStep === 1) {
+      const res = await api.post('/accounts/youtube/init', {
+        client_secrets_json: formData.client_secrets_json
+      });
+      setYoutubeAuthUrl(res.data.auth_url);
+      setYoutubeAuthStep(2);
+      return false; // don't close modal
+    } else {
+      await api.post('/accounts/youtube/verify', {
+        nickname: formData.nickname,
+        client_secrets_json: formData.client_secrets_json,
+        auth_code: formData.auth_code,
+        niche: formData.niche,
+        language: formData.language
+      });
+      return true; // close modal
+    }
+  };
+
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const endpoint = activeTab === 'youtube' ? '/accounts/youtube' : '/accounts/twitter';
-      const payload = activeTab === 'youtube' ? {
-        nickname: formData.nickname,
-        firefox_profile: formData.firefox_profile,
-        niche: formData.niche,
-        language: formData.language
-      } : {
-        nickname: formData.nickname,
-        firefox_profile: formData.firefox_profile,
-        topic: formData.topic
-      };
-
-      await api.post(endpoint, payload);
+      let shouldClose = true;
+      if (activeTab === 'youtube') {
+        shouldClose = await handleYoutubeSubmit();
+      } else {
+        await handleTwitterSubmit();
+      }
       
-      // Reset and close
-      setFormData({
-        nickname: '',
-        firefox_profile: '',
-        niche: '',
-        language: 'English',
-        topic: ''
-      });
-      setIsModalOpen(false);
-      fetchAccounts();
-    } catch (err) {
+      if (shouldClose) {
+        resetForm();
+        setIsModalOpen(false);
+        fetchAccounts();
+      }
+    } catch (err: any) {
       console.error('Failed to create account', err);
-      alert('Failed to link account. Please check your inputs.');
+      alert(err.response?.data?.detail || 'Failed to link account. Please check your inputs.');
     } finally {
       setSubmitting(false);
     }
@@ -253,68 +296,155 @@ const AccountsPage = () => {
             </div>
 
             <form onSubmit={handleCreateAccount} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Nickname</label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="Main Channel"
-                    value={formData.nickname}
-                    onChange={(e) => setFormData({...formData, nickname: e.target.value})}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Firefox Profile</label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="path/to/profile"
-                    value={formData.firefox_profile}
-                    onChange={(e) => setFormData({...formData, firefox_profile: e.target.value})}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
-                  />
-                </div>
-              </div>
-
-              {activeTab === 'youtube' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Niche</label>
-                    <input
-                      required
-                      type="text"
-                      placeholder="e.g. Cooking"
-                      value={formData.niche}
-                      onChange={(e) => setFormData({...formData, niche: e.target.value})}
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
-                    />
+              {activeTab === 'youtube' && youtubeAuthStep === 2 ? (
+                <div className="space-y-6">
+                  <div className="p-5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                    <h4 className="text-emerald-500 font-bold mb-2">Step 2: Authorize Application</h4>
+                    <p className="text-sm text-zinc-400 mb-4">
+                      Click the link below to securely authorize the MoneyPrinterV2 bot with your YouTube Account. 
+                      Copy the resulting Authorization Code and paste it here.
+                    </p>
+                    <a 
+                      href={youtubeAuthUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-block px-4 py-2 bg-zinc-900 border border-emerald-500/30 rounded-xl text-emerald-400 font-bold hover:bg-zinc-800 transition-colors"
+                    >
+                      Open Authorization Link ↗
+                    </a>
                   </div>
+
                   <div>
-                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Language</label>
+                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Authorization Code</label>
                     <input
                       required
                       type="text"
-                      placeholder="English"
-                      value={formData.language}
-                      onChange={(e) => setFormData({...formData, language: e.target.value})}
+                      placeholder="Paste code here..."
+                      value={formData.auth_code}
+                      onChange={(e) => setFormData({...formData, auth_code: e.target.value})}
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
                     />
                   </div>
                 </div>
               ) : (
-                <div>
-                  <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Topic</label>
-                  <input
-                    required
-                    type="text"
-                    placeholder="e.g. AI News"
-                    value={formData.topic}
-                    onChange={(e) => setFormData({...formData, topic: e.target.value})}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
-                  />
-                </div>
+                <>
+                  <div className="grid grid-cols-1 gap-6">
+                    <div>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Account Nickname</label>
+                      <input
+                        required
+                        type="text"
+                        placeholder="e.g. Main Channel / My Handle"
+                        value={formData.nickname}
+                        onChange={(e) => setFormData({...formData, nickname: e.target.value})}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
+                      />
+                    </div>
+                  </div>
+
+                  {activeTab === 'youtube' ? (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Niche</label>
+                          <input
+                            required
+                            type="text"
+                            placeholder="e.g. Cooking"
+                            value={formData.niche}
+                            onChange={(e) => setFormData({...formData, niche: e.target.value})}
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Language</label>
+                          <input
+                            required
+                            type="text"
+                            placeholder="English"
+                            value={formData.language}
+                            onChange={(e) => setFormData({...formData, language: e.target.value})}
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Client Secrets JSON</label>
+                        <p className="text-xs text-zinc-500 mb-3 ml-1">Paste the contents of your Google Desktop / Web App client_secret.json here.</p>
+                        <textarea
+                          required
+                          placeholder='{"web":{"client_id":"...","project_id":"..."}}'
+                          value={formData.client_secrets_json}
+                          onChange={(e) => setFormData({...formData, client_secrets_json: e.target.value})}
+                          rows={6}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800 font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Topic</label>
+                        <input
+                          required
+                          type="text"
+                          placeholder="e.g. AI News"
+                          value={formData.topic}
+                          onChange={(e) => setFormData({...formData, topic: e.target.value})}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 bg-blue-500/5 border border-blue-500/20 rounded-2xl">
+                        <div className="col-span-full">
+                           <h4 className="text-blue-500 font-bold mb-1">Twitter Developer Auth</h4>
+                           <p className="text-xs text-zinc-400">Provide your app's keys with Read/Write OAuth 1.0a permissions</p>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">API Key</label>
+                          <input
+                            required
+                            type="password"
+                            value={formData.api_key}
+                            onChange={(e) => setFormData({...formData, api_key: e.target.value})}
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">API Secret</label>
+                          <input
+                            required
+                            type="password"
+                            value={formData.api_secret}
+                            onChange={(e) => setFormData({...formData, api_secret: e.target.value})}
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Access Token</label>
+                          <input
+                            required
+                            type="password"
+                            value={formData.access_token}
+                            onChange={(e) => setFormData({...formData, access_token: e.target.value})}
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Access Token Secret</label>
+                          <input
+                            required
+                            type="password"
+                            value={formData.access_token_secret}
+                            onChange={(e) => setFormData({...formData, access_token_secret: e.target.value})}
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               <button
@@ -322,7 +452,10 @@ const AccountsPage = () => {
                 type="submit"
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl font-black tracking-tighter transition-all active:scale-[0.98] mt-4 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
               >
-                {submitting ? 'LINKING...' : 'INITIALIZE CONNECTION'}
+                {submitting ? 'PROCESSING...' : 
+                 activeTab === 'youtube' && youtubeAuthStep === 1 ? 'GET AUTHORIZATION LINK' :
+                 activeTab === 'youtube' && youtubeAuthStep === 2 ? 'VERIFY OAUTH AND SAVE' : 
+                 'LINK TWITTER APP'}
               </button>
             </form>
           </div>

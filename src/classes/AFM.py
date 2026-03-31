@@ -1,18 +1,14 @@
 import os
 from urllib.parse import urlparse
 from typing import Any
+import requests
+from bs4 import BeautifulSoup
 
 from status import *
 from config import *
 from constants import *
 from llm_provider import generate_text
 from .Twitter import Twitter
-from selenium_firefox import *
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.firefox.options import Options
-from webdriver_manager.firefox import GeckoDriverManager
 
 
 class AffiliateMarketing:
@@ -23,51 +19,17 @@ class AffiliateMarketing:
     def __init__(
         self,
         affiliate_link: str,
-        fp_profile_path: str,
-        twitter_account_uuid: str,
+        account_uuid: str,
         account_nickname: str,
         topic: str,
+        api_key: str = None,
+        api_secret: str = None,
+        access_token: str = None,
+        access_token_secret: str = None,
     ) -> None:
         """
         Initializes the Affiliate Marketing class.
-
-        Args:
-            affiliate_link (str): The affiliate link
-            fp_profile_path (str): The path to the Firefox profile
-            twitter_account_uuid (str): The Twitter account UUID
-            account_nickname (str): The account nickname
-            topic (str): The topic of the product
-
-        Returns:
-            None
         """
-        self._fp_profile_path: str = fp_profile_path
-
-        # Initialize the Firefox profile
-        self.options: Options = Options()
-
-        # Set headless state of browser
-        if get_headless():
-            self.options.add_argument("--headless")
-
-        if not os.path.isdir(fp_profile_path):
-            raise ValueError(
-                f"Firefox profile path does not exist or is not a directory: {fp_profile_path}"
-            )
-
-        # Set the profile path
-        self.options.add_argument("-profile")
-        self.options.add_argument(fp_profile_path)
-
-        # Set the service
-        self.service: Service = Service(GeckoDriverManager().install())
-
-        # Initialize the browser
-        self.browser: webdriver.Firefox = webdriver.Firefox(
-            service=self.service, options=self.options
-        )
-
-        # Set the affiliate link
         self.affiliate_link: str = affiliate_link
 
         parsed_link = urlparse(self.affiliate_link)
@@ -76,14 +38,14 @@ class AffiliateMarketing:
                 f"Affiliate link is invalid. Expected a full URL, got: {self.affiliate_link}"
             )
 
-        # Set the Twitter account UUID
-        self.account_uuid: str = twitter_account_uuid
-
-        # Set the Twitter account nickname
-        self.account_nickname: str = account_nickname
-
-        # Set the Twitter topic
-        self.topic: str = topic
+        self.account_uuid = account_uuid
+        self.account_nickname = account_nickname
+        self.topic = topic
+        
+        self.api_key = api_key
+        self.api_secret = api_secret
+        self.access_token = access_token
+        self.access_token_secret = access_token_secret
 
         # Scrape the product information
         self.scrape_product_information()
@@ -91,78 +53,77 @@ class AffiliateMarketing:
     def scrape_product_information(self) -> None:
         """
         This method will be used to scrape the product
-        information from the affiliate link.
+        information from the affiliate link via requests.
         """
-        # Open the affiliate link
-        self.browser.get(self.affiliate_link)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        }
+        
+        try:
+            response = requests.get(self.affiliate_link, headers=headers, timeout=15)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Find title
+            title_node = soup.find(id=AMAZON_PRODUCT_TITLE_ID)
+            product_title = title_node.text.strip() if title_node else "Unknown Product"
+            
+            # Find features
+            feature_node = soup.find(id=AMAZON_FEATURE_BULLETS_ID)
+            features = feature_node.text.strip() if feature_node else "No specific features found."
 
-        # Get the product name
-        product_title: str = self.browser.find_element(
-            By.ID, AMAZON_PRODUCT_TITLE_ID
-        ).text
+            if get_verbose():
+                info(f"Product Title: {product_title}")
+                info(f"Features preview: {features[:100]}...")
 
-        # Get the features of the product
-        features: Any = self.browser.find_elements(By.ID, AMAZON_FEATURE_BULLETS_ID)
+            self.product_title = product_title
+            self.features = features
+        except Exception as e:
+            if get_verbose():
+                warning(f"Failed to scrape Amazon page: {e}. Falling back to default generation.")
+            self.product_title = "Affiliate Product"
+            self.features = f"Discover more details at {self.affiliate_link}"
 
-        if get_verbose():
-            info(f"Product Title: {product_title}")
-
-        if get_verbose():
-            info(f"Features: {features}")
-
-        # Set the product title
-        self.product_title: str = product_title
-
-        # Set the features
-        self.features: Any = features
 
     def generate_response(self, prompt: str) -> str:
         """
         This method will be used to generate the response for the user.
-
-        Args:
-            prompt (str): The prompt for the user.
-
-        Returns:
-            response (str): The response for the user.
         """
         return generate_text(prompt)
 
     def generate_pitch(self) -> str:
         """
         This method will be used to generate a pitch for the product.
-
-        Returns:
-            pitch (str): The pitch for the product.
         """
-        # Generate the response
         pitch: str = (
             self.generate_response(
-                f'I want to promote this product on my website. Generate a brief pitch about this product, return nothing else except the pitch. Information:\nTitle: "{self.product_title}"\nFeatures: "{str(self.features)}"'
+                f'I want to promote this product on my website. Generate a brief Twitter pitch about this product, under 200 characters, return nothing else except the pitch. Information:\nTitle: "{self.product_title}"\nFeatures: "{str(self.features)}"'
             )
-            + "\nYou can buy the product here: "
+            + "\nBuy here: "
             + self.affiliate_link
         )
 
         self.pitch: str = pitch
-
-        # Return the response
         return pitch
 
     def share_pitch(self, where: str) -> None:
         """
         This method will be used to share the pitch on the specified platform.
-
-        Args:
-            where (str): The platform where the pitch will be shared.
         """
         if where == "twitter":
-            # Initialize the Twitter class
+            # Initialize the Twitter class with API keys
             twitter: Twitter = Twitter(
-                self.account_uuid,
-                self.account_nickname,
-                self._fp_profile_path,
-                self.topic,
+                account_uuid=self.account_uuid,
+                account_nickname=self.account_nickname,
+                topic=self.topic,
+                api_key=self.api_key,
+                api_secret=self.api_secret,
+                access_token=self.access_token,
+                access_token_secret=self.access_token_secret
             )
 
             # Share the pitch
@@ -170,7 +131,6 @@ class AffiliateMarketing:
 
     def quit(self) -> None:
         """
-        This method will be used to quit the browser.
+        Stub out legacy Firefox cleanup method.
         """
-        # Quit the browser
-        self.browser.quit()
+        pass

@@ -5,9 +5,11 @@ requests
 kittentts @ https://github.com/KittenML/KittenTTS/releases/download/0.8.1/kittentts-0.8.1-py3-none-any.whl
 soundfile
 prettytable
-webdriver_manager
-selenium_firefox
-selenium==4.9.1
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+tweepy
+beautifulsoup4
 ollama
 moviepy<2.0.0
 Pillow>=10.0.0

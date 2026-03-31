@@ -14,19 +14,16 @@ from config import *
 from status import *
 from uuid import uuid4
 from constants import *
-from typing import List
 from moviepy.editor import *
 from termcolor import colored
-from selenium_firefox import *
-from selenium import webdriver
 from moviepy.video.fx.all import crop
 from moviepy.config import change_settings
-from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.firefox.options import Options
 from moviepy.video.tools.subtitles import SubtitlesClip
-from webdriver_manager.firefox import GeckoDriverManager
 from datetime import datetime
+
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from google.oauth2.credentials import Credentials
 
 # Set ImageMagick Path
 change_settings({"IMAGEMAGICK_BINARY": get_imagemagick_path()})
@@ -51,53 +48,24 @@ class YouTube:
         self,
         account_uuid: str,
         account_nickname: str,
-        fp_profile_path: str,
+        credentials: dict,
         niche: str,
         language: str,
     ) -> None:
         """
         Constructor for YouTube Class.
-
-        Args:
-            account_uuid (str): The unique identifier for the YouTube account.
-            account_nickname (str): The nickname for the YouTube account.
-            fp_profile_path (str): Path to the firefox profile that is logged into the specificed YouTube Account.
-            niche (str): The niche of the provided YouTube Channel.
-            language (str): The language of the Automation.
-
-        Returns:
-            None
         """
         self._account_uuid: str = account_uuid
         self._account_nickname: str = account_nickname
-        self._fp_profile_path: str = fp_profile_path
         self._niche: str = niche
         self._language: str = language
-
         self.images = []
 
-        # Initialize the Firefox profile
-        self.options: Options = Options()
-
-        # Set headless state of browser
-        if get_headless():
-            self.options.add_argument("--headless")
-
-        if not os.path.isdir(self._fp_profile_path):
-            raise ValueError(
-                f"Firefox profile path does not exist or is not a directory: {self._fp_profile_path}"
-            )
-
-        self.options.add_argument("-profile")
-        self.options.add_argument(self._fp_profile_path)
-
-        # Set the service
-        self.service: Service = Service(GeckoDriverManager().install())
-
-        # Initialize the browser
-        self.browser: webdriver.Firefox = webdriver.Firefox(
-            service=self.service, options=self.options
-        )
+        try:
+            creds = Credentials.from_authorized_user_info(credentials)
+            self.youtube_api = build("youtube", "v3", credentials=creds)
+        except Exception as e:
+            raise ValueError(f"Failed to authenticate YouTube API: {e}")
 
     @property
     def niche(self) -> str:
@@ -687,152 +655,62 @@ class YouTube:
 
     def get_channel_id(self) -> str:
         """
-        Gets the Channel ID of the YouTube Account.
-
-        Returns:
-            channel_id (str): The Channel ID.
+        Gets the Channel ID of the YouTube Account via API.
         """
-        driver = self.browser
-        driver.get("https://studio.youtube.com")
-        time.sleep(2)
-        channel_id = driver.current_url.split("/")[-1]
-        self.channel_id = channel_id
-
-        return channel_id
+        try:
+            response = self.youtube_api.channels().list(mine=True, part="id").execute()
+            if not response.get("items"):
+                raise RuntimeError("No YouTube channel found for this authenticated user. Create a channel first.")
+            channel_id = response["items"][0]["id"]
+            self.channel_id = channel_id
+            return channel_id
+        except Exception as e:
+            warning(f"Failed to retrieve channel ID: {e}")
+            return "UNKNOWN_CHANNEL_ID"
 
     def upload_video(self) -> bool:
         """
-        Uploads the video to YouTube.
-
-        Returns:
-            success (bool): Whether the upload was successful or not.
+        Uploads the video to YouTube via the Data API v3.
         """
         try:
             self.get_channel_id()
-
-            driver = self.browser
             verbose = get_verbose()
 
-            # Go to youtube.com/upload
-            driver.get("https://www.youtube.com/upload")
-
-            # Set video file
-            FILE_PICKER_TAG = "ytcp-uploads-file-picker"
-            file_picker = driver.find_element(By.TAG_NAME, FILE_PICKER_TAG)
-            INPUT_TAG = "input"
-            file_input = file_picker.find_element(By.TAG_NAME, INPUT_TAG)
-            file_input.send_keys(self.video_path)
-
-            # Wait for upload to finish
-            time.sleep(5)
-
-            # Set title
-            textboxes = driver.find_elements(By.ID, YOUTUBE_TEXTBOX_ID)
-
-            title_el = textboxes[0]
-            description_el = textboxes[-1]
-
             if verbose:
-                info("\t=> Setting title...")
+                info("\t=> Uploading video to YouTube API...")
 
-            title_el.click()
-            time.sleep(1)
-            title_el.clear()
-            title_el.send_keys(self.metadata["title"])
+            body = {
+                "snippet": {
+                    "title": self.metadata["title"],
+                    "description": self.metadata["description"],
+                    "categoryId": "22"  # People & Blogs as default
+                },
+                "status": {
+                    "privacyStatus": "unlisted",  # Options: unlisted, public, private
+                    "selfDeclaredMadeForKids": get_is_for_kids()
+                }
+            }
 
-            if verbose:
-                info("\t=> Setting description...")
-
-            # Set description
-            time.sleep(10)
-            description_el.click()
-            time.sleep(0.5)
-            description_el.clear()
-            description_el.send_keys(self.metadata["description"])
-
-            time.sleep(0.5)
-
-            # Set `made for kids` option
-            if verbose:
-                info("\t=> Setting `made for kids` option...")
-
-            is_for_kids_checkbox = driver.find_element(
-                By.NAME, YOUTUBE_MADE_FOR_KIDS_NAME
+            media = MediaFileUpload(self.video_path, chunksize=-1, resumable=True)
+            
+            request = self.youtube_api.videos().insert(
+                part="snippet,status",
+                body=body,
+                media_body=media
             )
-            is_not_for_kids_checkbox = driver.find_element(
-                By.NAME, YOUTUBE_NOT_MADE_FOR_KIDS_NAME
-            )
-
-            if not get_is_for_kids():
-                is_not_for_kids_checkbox.click()
-            else:
-                is_for_kids_checkbox.click()
-
-            time.sleep(0.5)
-
-            # Click next
-            if verbose:
-                info("\t=> Clicking next...")
-
-            next_button = driver.find_element(By.ID, YOUTUBE_NEXT_BUTTON_ID)
-            next_button.click()
-
-            # Click next again
-            if verbose:
-                info("\t=> Clicking next again...")
-            next_button = driver.find_element(By.ID, YOUTUBE_NEXT_BUTTON_ID)
-            next_button.click()
-
-            # Wait for 2 seconds
-            time.sleep(2)
-
-            # Click next again
-            if verbose:
-                info("\t=> Clicking next again...")
-            next_button = driver.find_element(By.ID, YOUTUBE_NEXT_BUTTON_ID)
-            next_button.click()
-
-            # Set as unlisted
-            if verbose:
-                info("\t=> Setting as unlisted...")
-
-            radio_button = driver.find_elements(By.XPATH, YOUTUBE_RADIO_BUTTON_XPATH)
-            radio_button[2].click()
-
-            if verbose:
-                info("\t=> Clicking done button...")
-
-            # Click done button
-            done_button = driver.find_element(By.ID, YOUTUBE_DONE_BUTTON_ID)
-            done_button.click()
-
-            # Wait for 2 seconds
-            time.sleep(2)
-
-            # Get latest video
-            if verbose:
-                info("\t=> Getting video URL...")
-
-            # Get the latest uploaded video URL
-            driver.get(
-                f"https://studio.youtube.com/channel/{self.channel_id}/videos/short"
-            )
-            time.sleep(2)
-            videos = driver.find_elements(By.TAG_NAME, "ytcp-video-row")
-            first_video = videos[0]
-            anchor_tag = first_video.find_element(By.TAG_NAME, "a")
-            href = anchor_tag.get_attribute("href")
-            if verbose:
-                info(f"\t=> Extracting video ID from URL: {href}")
-            video_id = href.split("/")[-2]
+            
+            response = request.execute()
+            video_id = response.get("id")
+            
+            if not video_id:
+                raise RuntimeError("API request executed but no video ID returned.")
 
             # Build URL
             url = build_url(video_id)
-
             self.uploaded_video_url = url
 
             if verbose:
-                success(f" => Uploaded Video: {url}")
+                success(f" => Uploaded Video successfully: {url}")
 
             # Add video to cache
             self.add_video(
@@ -844,12 +722,9 @@ class YouTube:
                 }
             )
 
-            # Close the browser
-            driver.quit()
-
             return True
-        except:
-            self.browser.quit()
+        except Exception as e:
+            error(f"Failed to upload video to YouTube: {e}")
             return False
 
     def get_videos(self) -> List[dict]:
