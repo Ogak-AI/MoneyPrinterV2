@@ -21,6 +21,9 @@ from database import init_db, get_db_connection
 from auth_utils import get_password_hash, verify_password, create_access_token, decode_access_token, generate_secure_token
 from email_utils import send_password_reset_email
 
+import json
+from datetime import datetime, timedelta
+
 app = FastAPI(title="MoneyPrinterV2 API", version="1.0.0")
 
 # Ensure DB is initialized immediately on load
@@ -43,20 +46,6 @@ app.add_middleware(
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
-
-@app.get("/")
-def read_root():
-    return {"message": "MoneyPrinterV2 API is running", "docs": "/docs"}
-
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    payload = decode_access_token(token)
-    if payload is None:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    return payload
-
-@app.get("/api/auth/me", response_model=UserResponse)
-def get_me(current_user: dict = Depends(get_current_user)):
-    return {"id": current_user["id"], "email": current_user["sub"]}
 
 # Persistence for recurring schedules
 SCHEDULES_FILE = os.path.join(ROOT_DIR, ".mp", "schedules.json")
@@ -127,89 +116,39 @@ async def startup_event():
     apply_schedules()
     asyncio.create_task(scheduler_loop())
 
-@app.post("/api/auth/register", response_model=UserResponse)
-def register(user: UserRegister):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        user_id = str(uuid.uuid4())
-        hashed_pw = get_password_hash(user.password)
-        
-        cursor.execute("INSERT INTO users (id, email, hashed_password, is_verified, verification_token, verification_otp) VALUES (?, ?, ?, ?, NULL, NULL)", 
-                       (user_id, user.email, hashed_pw, 1))
-        conn.commit()
-        
-        return {"id": user_id, "email": user.email}
-    except Exception as e:
-        err = str(e).lower()
-        if "unique" in err or "duplicate" in err:
-            raise HTTPException(status_code=400, detail="User with this email already exists")
-        print(f"Registration error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error during registration")
-    finally:
-        conn.close()
+@app.get("/")
+def read_root():
+    return {"message": "MoneyPrinterV2 API is running", "docs": "/docs"}
 
-@app.post("/api/auth/login")
-def login(user: UserLogin):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ?", (user.email,))
-    db_user = cursor.fetchone()
-    conn.close()
+# Supabase JWT Secret for token validation
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 
-    if db_user is None or not verify_password(user.password, db_user["hashed_password"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    if not SUPABASE_JWT_SECRET:
+        # Fallback for development if secret not set yet
+        print("WARNING: SUPABASE_JWT_SECRET not set. Authentication will fail in production.")
+        # Try decoding with a placeholder to avoid crashing if it's meant to be bypassable in dev
+        payload = decode_access_token(token)
+    else:
+        # Proper validation with secret
+        try:
+            import jwt
+            payload = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"], audience="authenticated")
+        except Exception as e:
+            print(f"Token validation error: {e}")
+            payload = None
 
-    access_token = create_access_token(data={"sub": user.email, "id": db_user["id"]})
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
-
-@app.post("/api/auth/reset-password/request")
-def request_password_reset(req: PasswordResetRequest, bg: BackgroundTasks):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ?", (req.email,))
-    user = cursor.fetchone()
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     
-    if user:
-        reset_token = generate_secure_token()
-        expires_at = (datetime.utcnow() + timedelta(hours=1)).isoformat()
-        
-        cursor.execute("UPDATE users SET reset_token = ?, reset_token_expires_at = ? WHERE id = ?", 
-                       (reset_token, expires_at, user["id"]))
-        conn.commit()
-        
-        bg.add_task(send_password_reset_email, user["email"], reset_token)
-    
-    conn.close()
-    # Always return success to prevent email enumeration
-    return {"message": "If the email exists, a password reset link has been sent."}
+    # Supabase JWT payload has 'sub' as user id
+    return {"id": payload.get("sub"), "email": payload.get("email")}
 
-@app.post("/api/auth/reset-password/confirm")
-def confirm_password_reset(req: PasswordResetConfirm):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE reset_token = ?", (req.token,))
-    user = cursor.fetchone()
-    
-    if user is None:
-        conn.close()
-        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
-    
-    # Check expiration
-    expires_at = user["reset_token_expires_at"]
-    if expires_at and datetime.fromisoformat(expires_at) < datetime.utcnow():
-        conn.close()
-        raise HTTPException(status_code=400, detail="Reset token has expired")
-    
-    hashed_pw = get_password_hash(req.new_password)
-    cursor.execute("UPDATE users SET hashed_password = ?, reset_token = NULL, reset_token_expires_at = NULL WHERE id = ?", 
-                   (hashed_pw, user["id"]))
-    conn.commit()
-    conn.close()
-    
-    return {"message": "Password reset successfully"}
+@app.get("/api/auth/me", response_model=UserResponse)
+def get_me(current_user: dict = Depends(get_current_user)):
+    return {"id": current_user["id"], "email": current_user["email"]}
+
+
 
 @app.get("/health")
 def health_check():

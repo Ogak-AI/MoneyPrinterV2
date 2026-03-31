@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import api from '../api/axios';
-import { Lock, AlertCircle, CheckCircle, PlayCircle } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../api/supabase';
+import { Lock, AlertCircle, CheckCircle } from 'lucide-react';
 
 const ResetPasswordPage = () => {
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -15,10 +13,6 @@ const ResetPasswordPage = () => {
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) {
-      setError('Invalid or missing reset token.');
-      return;
-    }
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -28,28 +22,16 @@ const ResetPasswordPage = () => {
     setError('');
     
     try {
-      await api.post('/api/auth/reset-password/confirm', { token, new_password: password });
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
       setSuccess(true);
       setTimeout(() => navigate('/login'), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to reset password. The link may be invalid or expired.');
+      setError(err.message || 'Failed to update password. Your session may have expired.');
     } finally {
       setLoading(false);
     }
   };
-
-  if (!token) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-6">
-        <div className="w-full max-w-md text-center space-y-6">
-          <XCircle className="w-16 h-16 text-red-500 mx-auto" />
-          <h2 className="text-xl font-bold text-white">Invalid Request</h2>
-          <p className="text-sm text-zinc-500">Missing password reset token.</p>
-          <Link to="/login" className="block text-emerald-500 font-bold">BACK TO LOGIN</Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-6 selection:bg-emerald-500/30 overflow-hidden relative">
@@ -145,9 +127,5 @@ const ResetPasswordPage = () => {
     </div>
   );
 };
-
-const XCircle = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-);
 
 export default ResetPasswordPage;

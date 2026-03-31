@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import api from '../api/axios';
-import { Lock, Mail, AlertCircle, UserPlus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { supabase } from '../api/supabase';
+import { Lock, Mail, AlertCircle, UserPlus, CheckCircle } from 'lucide-react';
 
 const RegisterPage = () => {
   const [email, setEmail] = useState('');
@@ -9,7 +9,7 @@ const RegisterPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [success, setSuccess] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,15 +22,49 @@ const RegisterPage = () => {
     setError('');
     
     try {
-      await api.post('/api/auth/register', { email, password });
-      // Redirect to login page
-      navigate(`/login`);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        setSuccess(true);
+      }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'An unexpected error occurred during registration. Please try again.');
+      setError(err.message || 'An unexpected error occurred during registration. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (success) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-6 selection:bg-emerald-500/30 overflow-hidden relative">
+        <div className="w-full max-w-md z-10 text-center">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 backdrop-blur-xl p-8 shadow-2xl">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 bg-emerald-600/20 rounded-full flex items-center justify-center border border-emerald-500/30">
+                <CheckCircle className="w-8 h-8 text-emerald-500" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-black text-white mb-4 uppercase tracking-tight">Access Requested</h2>
+            <p className="text-zinc-400 mb-8 leading-relaxed">
+              We've sent a secure verification link to <span className="text-emerald-400 font-bold">{email}</span>. 
+              Please click the link in the email to authorize your terminal access.
+            </p>
+            <Link 
+              to="/login"
+              className="inline-block w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold tracking-tight transition-all active:scale-[0.98] shadow-lg shadow-emerald-600/10"
+            >
+              RETURN TO LOGIN
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-6 selection:bg-emerald-500/30 overflow-hidden relative">

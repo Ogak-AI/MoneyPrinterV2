@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { supabase } from '../api/supabase';
 
 interface User {
   id: string;
@@ -7,41 +8,47 @@ interface User {
 
 interface AuthState {
   user: User | null;
-  token: string | null;
-  setAuth: (user: User, token: string) => void;
-  logout: () => void;
+  session: any | null;
+  setAuth: (user: User, session: any) => void;
+  logout: () => Promise<void>;
   isInitialized: boolean;
-  initialize: () => void;
+  initialize: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: null,
+  session: null,
   isInitialized: false,
-  setAuth: (user, token) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    set({ user, token, isInitialized: true });
+  setAuth: (user, session) => {
+    set({ user, session, isInitialized: true });
   },
-  logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    set({ user: null, token: null });
+  logout: async () => {
+    await supabase.auth.signOut();
+    set({ user: null, session: null });
   },
-  initialize: () => {
-    const token = localStorage.getItem('token');
-    const userJson = localStorage.getItem('user');
-    if (token && userJson) {
-      try {
-        const user = JSON.parse(userJson);
-        set({ user, token, isInitialized: true });
-      } catch (e) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        set({ user: null, token: null, isInitialized: true });
-      }
+  initialize: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session?.user) {
+      set({ 
+        user: { id: session.user.id, email: session.user.email || '' }, 
+        session, 
+        isInitialized: true 
+      });
     } else {
       set({ isInitialized: true });
     }
+
+    // Listen for auth changes
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        set({ 
+          user: { id: session.user.id, email: session.user.email || '' }, 
+          session 
+        });
+      } else {
+        set({ user: null, session: null });
+      }
+    });
   },
 }));

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../api/axios';
+import { supabase } from '../api/supabase';
 import { Mail, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
 
 const ForgotPasswordPage = () => {
@@ -8,7 +8,6 @@ const ForgotPasswordPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
 
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,11 +15,13 @@ const ForgotPasswordPage = () => {
     setError('');
     
     try {
-      const response = await api.post('/api/auth/reset-password/request', { email });
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
       setSuccess(true);
-      setMessage(response.data.message);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'An unexpected error occurred. Please try again.');
+      setError(err.message || 'An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -62,7 +63,7 @@ const ForgotPasswordPage = () => {
                 <CheckCircle className="w-8 h-8 text-emerald-500" />
               </div>
               <h2 className="text-lg font-bold text-white uppercase tracking-tight">Request Transmitted</h2>
-              <p className="text-sm text-zinc-400">{message}</p>
+              <p className="text-sm text-zinc-400">If an account exists for this email, we've sent instructions to reset your password. Please check your inbox.</p>
               <div className="pt-4">
                 <Link to="/login" className="text-xs font-bold text-emerald-500 hover:text-emerald-400 uppercase tracking-widest">
                   Return to Terminal

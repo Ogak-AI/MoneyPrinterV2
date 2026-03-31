@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../api/axios';
-import { useAuthStore } from '../store/authStore';
+import { supabase } from '../api/supabase';
 import { Lock, Mail, AlertCircle, PlayCircle } from 'lucide-react';
 
 const LoginPage = () => {
@@ -9,7 +8,6 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { setAuth } = useAuthStore();
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -18,12 +16,22 @@ const LoginPage = () => {
     setError('');
     
     try {
-      const response = await api.post('/api/auth/login', { email, password });
-      const { access_token } = response.data;
-      setAuth({ id: 'temp-id', email }, access_token);
-      navigate('/');
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.session) {
+        navigate('/');
+      }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed. Please check your credentials.');
+      if (err.message.includes('Email not confirmed')) {
+        setError('Email not verified. Please check your inbox for the authorization link.');
+      } else {
+        setError(err.message || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
