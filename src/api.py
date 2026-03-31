@@ -1,8 +1,11 @@
 import os
+import json
 import uuid
 import asyncio
 import schedule
 import subprocess
+import requests as http_requests
+from functools import lru_cache
 from fastapi import FastAPI, BackgroundTasks, Header, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
@@ -120,27 +123,89 @@ async def startup_event():
 def read_root():
     return {"message": "MoneyPrinterV2 API is running", "docs": "/docs"}
 
-# Supabase JWT Secret for token validation
+# Supabase configuration for token validation
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+
+@lru_cache(maxsize=1)
+def _fetch_supabase_jwks() -> list:
+    """
+    Fetch and cache Supabase's RSA public keys from the JWKS endpoint.
+    Only called when the token algorithm is RS256.
+    """
+    if not SUPABASE_URL:
+        print("WARNING: SUPABASE_URL not set — cannot fetch JWKS for RS256 validation.")
+        return []
+    try:
+        resp = http_requests.get(f"{SUPABASE_URL}/.well-known/jwks.json", timeout=10)
+        resp.raise_for_status()
+        return resp.json().get("keys", [])
+    except Exception as e:
+        print(f"Failed to fetch Supabase JWKS: {e}")
+        return []
+
+def _decode_supabase_token(token: str):
+    """
+    Decode a Supabase-issued JWT.
+    Supports both RS256 (new Supabase projects) and HS256 (legacy projects).
+    Algorithm is detected from the token header automatically.
+    """
+    import jwt
+    from jwt.algorithms import RSAAlgorithm
+
+    # Peek at the JWT header to determine algorithm
+    try:
+        header = jwt.get_unverified_header(token)
+        alg = header.get("alg", "HS256")
+    except Exception as e:
+        print(f"Token header parse error: {e}")
+        return None
+
+    if alg == "RS256":
+        # Validate using Supabase's public RSA key via JWKS
+        keys = _fetch_supabase_jwks()
+        if not keys:
+            print("Token validation error: RS256 token received but no JWKS keys available.")
+            return None
+        kid = header.get("kid")
+        # Match by key ID if present, otherwise try all signing keys
+        candidates = [k for k in keys if k.get("kid") == kid] if kid else keys
+        if not candidates:
+            candidates = keys
+        for jwk in candidates:
+            try:
+                public_key = RSAAlgorithm.from_jwk(json.dumps(jwk))
+                return jwt.decode(
+                    token,
+                    public_key,
+                    algorithms=["RS256"],
+                    audience="authenticated",
+                )
+            except Exception as e:
+                print(f"Token validation error (RS256, kid={jwk.get('kid')}): {e}")
+        return None
+    else:
+        # HS256 — use the JWT secret
+        if not SUPABASE_JWT_SECRET:
+            print("WARNING: SUPABASE_JWT_SECRET not set — HS256 validation will fail.")
+            return None
+        try:
+            return jwt.decode(
+                token,
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                audience="authenticated",
+            )
+        except Exception as e:
+            print(f"Token validation error (HS256): {e}")
+            return None
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
-    if not SUPABASE_JWT_SECRET:
-        # Fallback for development if secret not set yet
-        print("WARNING: SUPABASE_JWT_SECRET not set. Authentication will fail in production.")
-        # Try decoding with a placeholder to avoid crashing if it's meant to be bypassable in dev
-        payload = decode_access_token(token)
-    else:
-        # Proper validation with secret
-        try:
-            import jwt
-            payload = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"], audience="authenticated")
-        except Exception as e:
-            print(f"Token validation error: {e}")
-            payload = None
+    payload = _decode_supabase_token(token)
 
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    
+
     # Supabase JWT payload has 'sub' as user id
     return {"id": payload.get("sub"), "email": payload.get("email")}
 
