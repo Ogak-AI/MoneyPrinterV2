@@ -137,7 +137,7 @@ def _fetch_supabase_jwks() -> list:
         print("WARNING: SUPABASE_URL not set — cannot fetch JWKS for RS256 validation.")
         return []
     try:
-        resp = http_requests.get(f"{SUPABASE_URL}/.well-known/jwks.json", timeout=10)
+        resp = http_requests.get(f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json", timeout=10)
         resp.raise_for_status()
         return resp.json().get("keys", [])
     except Exception as e:
