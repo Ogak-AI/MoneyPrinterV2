@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../api/supabase';
 import { Lock, Mail, AlertCircle, UserPlus, CheckCircle } from 'lucide-react';
 
+// Supabase-powered registration flow
 const RegisterPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
