@@ -151,7 +151,6 @@ def _decode_supabase_token(token: str):
     Algorithm is detected from the token header automatically.
     """
     import jwt
-    from jwt.algorithms import RSAAlgorithm
 
     # Peek at the JWT header to determine algorithm
     try:
@@ -161,11 +160,11 @@ def _decode_supabase_token(token: str):
         print(f"Token header parse error: {e}")
         return None
 
-    if alg == "RS256":
-        # Validate using Supabase's public RSA key via JWKS
+    if alg in ["RS256", "ES256"]:
+        # Validate using Supabase's public key via JWKS
         keys = _fetch_supabase_jwks()
         if not keys:
-            print("Token validation error: RS256 token received but no JWKS keys available.")
+            print(f"Token validation error: {alg} token received but no JWKS keys available.")
             return None
         kid = header.get("kid")
         # Match by key ID if present, otherwise try all signing keys
@@ -174,15 +173,21 @@ def _decode_supabase_token(token: str):
             candidates = keys
         for jwk in candidates:
             try:
-                public_key = RSAAlgorithm.from_jwk(json.dumps(jwk))
+                if alg == "RS256":
+                    from jwt.algorithms import RSAAlgorithm
+                    public_key = RSAAlgorithm.from_jwk(json.dumps(jwk))
+                elif alg == "ES256":
+                    from jwt.algorithms import ECAlgorithm
+                    public_key = ECAlgorithm.from_jwk(json.dumps(jwk))
+
                 return jwt.decode(
                     token,
                     public_key,
-                    algorithms=["RS256"],
+                    algorithms=[alg],
                     audience="authenticated",
                 )
             except Exception as e:
-                print(f"Token validation error (RS256, kid={jwk.get('kid')}): {e}")
+                print(f"Token validation error ({alg}, kid={jwk.get('kid')}): {e}")
         return None
     else:
         # Fallback to symmetric validation with JWT secret
