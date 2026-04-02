@@ -15,6 +15,7 @@ class YouTubeOAuthVerifyRequest(BaseModel):
 class AccountResponse(BaseModel):
     id: str
     nickname: str
+    provider: Optional[str] = None
     niche: Optional[str] = None
     topic: Optional[str] = None
     language: Optional[str] = None

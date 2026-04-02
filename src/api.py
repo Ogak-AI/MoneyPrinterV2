@@ -27,7 +27,12 @@ from email_utils import send_password_reset_email
 import json
 from datetime import datetime, timedelta
 
-app = FastAPI(title="MoneyPrinterV2 API", version="1.0.0")
+app = FastAPI(
+    title="MoneyPrinterV2 API",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
 # Ensure DB is initialized immediately on load
 init_db()
@@ -224,6 +229,21 @@ def get_me(current_user: dict = Depends(get_current_user)):
 def health_check():
     return {"status": "healthy"}
 
+@app.get("/accounts", response_model=List[AccountResponse], dependencies=[Depends(get_current_user)])
+def list_accounts():
+    accounts = []
+    for provider in ["youtube", "twitter"]:
+        for acc in get_accounts(provider):
+            accounts.append(AccountResponse(
+                id=acc["id"],
+                nickname=acc["nickname"],
+                provider=provider,
+                niche=acc.get("niche"),
+                topic=acc.get("topic"),
+                language=acc.get("language")
+            ))
+    return accounts
+
 @app.get("/accounts/{provider}", response_model=List[AccountResponse], dependencies=[Depends(get_current_user)])
 def list_provider_accounts(provider: str):
     if provider not in ["youtube", "twitter"]:
@@ -232,6 +252,7 @@ def list_provider_accounts(provider: str):
     return [AccountResponse(
         id=acc["id"],
         nickname=acc["nickname"],
+        provider=provider,
         niche=acc.get("niche"),
         topic=acc.get("topic"),
         language=acc.get("language")
