@@ -4,6 +4,8 @@ from typing import List, Optional, Dict, Any
 class TwitterOAuthVerifyRequest(BaseModel):
     nickname: str
     topic: str
+    oauth_token: str
+    oauth_token_secret: str
     pin: str
 
 class YouTubeOAuthVerifyRequest(BaseModel):
