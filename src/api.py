@@ -45,7 +45,8 @@ app = FastAPI(
 init_db()
 
 # Use environment variable for frontend URL, with fallbacks for development and your specific Vercel URL
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173") or "http://localhost:5173"
+FRONTEND_URL = FRONTEND_URL.rstrip("/")
 
 app.add_middleware(
     CORSMiddleware,

@@ -416,20 +416,48 @@ def get_post_bridge_config() -> dict:
         ),
     }
 
+def _read_secret_file_or_value(value: str) -> str:
+    if not isinstance(value, str):
+        return ""
+    value = value.strip()
+    if not value:
+        return ""
+    if os.path.exists(value) and os.path.isfile(value):
+        try:
+            with open(value, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception:
+            return value
+    return value
+
+
 def get_google_client_secrets_json() -> str:
     """
-    Gets the master Google client_secret.json string from environment variables.
+    Gets the Google client_secret JSON from environment variables or config file.
     """
-    return os.environ.get("GOOGLE_CLIENT_SECRETS_JSON", "")
+    env_value = os.environ.get("GOOGLE_CLIENT_SECRETS_JSON", "").strip()
+    if env_value:
+        return env_value
+
+    config_value = _get_config().get("google_client_secrets_json", "")
+    return _read_secret_file_or_value(config_value)
+
 
 def get_twitter_api_key() -> str:
     """
     Gets the master Twitter API Key (Consumer Key).
     """
-    return os.environ.get("TWITTER_API_KEY", "")
+    env_value = os.environ.get("TWITTER_API_KEY", "").strip()
+    if env_value:
+        return env_value
+    return str(_get_config().get("twitter_api_key", "")).strip()
+
 
 def get_twitter_api_secret() -> str:
     """
     Gets the master Twitter API Secret (Consumer Secret).
     """
-    return os.environ.get("TWITTER_API_SECRET", "")
+    env_value = os.environ.get("TWITTER_API_SECRET", "").strip()
+    if env_value:
+        return env_value
+    return str(_get_config().get("twitter_api_secret", "")).strip()
