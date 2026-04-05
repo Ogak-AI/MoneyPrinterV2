@@ -122,7 +122,11 @@ async def startup_event():
     init_db()
     assert_folder_structure()
     rem_temp_files()
-    fetch_songs()
+    
+    # Run fetch_songs in a background thread to prevent blocking Uvicorn's port binding on Render
+    import threading
+    threading.Thread(target=fetch_songs, daemon=True).start()
+
     # Select default model if configured
     model = get_ollama_model()
     if model:
