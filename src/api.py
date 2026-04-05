@@ -284,7 +284,8 @@ def youtube_init_oauth():
         )
         flow.redirect_uri = f"{FRONTEND_URL}/oauth-callback"
         auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline')
-        return {"auth_url": auth_url}
+        code_verifier = getattr(flow, 'code_verifier', None)
+        return {"auth_url": auth_url, "code_verifier": code_verifier}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to generate Auth URL: {str(e)}")
 
@@ -301,6 +302,10 @@ def youtube_verify_oauth(req: YouTubeOAuthVerifyRequest):
             scopes=["https://www.googleapis.com/auth/youtube.upload"]
         )
         flow.redirect_uri = f"{FRONTEND_URL}/oauth-callback"
+        
+        if req.code_verifier:
+            flow.code_verifier = req.code_verifier
+            
         flow.fetch_token(code=req.auth_code)
         
         credentials = flow.credentials

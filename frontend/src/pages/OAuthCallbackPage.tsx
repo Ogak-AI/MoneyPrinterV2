@@ -28,7 +28,7 @@ const OAuthCallbackPage = () => {
           return;
         }
 
-        const { nickname, niche, language } = JSON.parse(savedData);
+        const { nickname, niche, language, code_verifier } = JSON.parse(savedData);
 
         // Send the code + form data to the backend to exchange for credentials
         setMessage('Exchanging authorization code for credentials...');
@@ -36,7 +36,8 @@ const OAuthCallbackPage = () => {
           nickname,
           auth_code: code,
           niche,
-          language
+          language,
+          code_verifier
         });
 
         // Clean up

@@ -13,6 +13,7 @@ class YouTubeOAuthVerifyRequest(BaseModel):
     auth_code: str
     niche: str
     language: str
+    code_verifier: Optional[str] = None
 
 class AccountResponse(BaseModel):
     id: str

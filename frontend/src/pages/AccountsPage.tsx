@@ -103,7 +103,8 @@ const AccountsPage = () => {
     sessionStorage.setItem('yt_oauth_data', JSON.stringify({
       nickname: formData.nickname,
       niche: formData.niche,
-      language: formData.language
+      language: formData.language,
+      code_verifier: res.data.code_verifier
     }));
     
     // Step 3: Redirect user to Google OAuth (they authorize, Google redirects back automatically)
