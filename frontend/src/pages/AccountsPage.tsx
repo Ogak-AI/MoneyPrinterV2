@@ -348,11 +348,10 @@ const AccountsPage = () => {
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Niche</label>
+                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Niche Protocol (Optional)</label>
                           <input
-                            required
                             type="text"
-                            placeholder="e.g. Cooking"
+                            placeholder="e.g. Finance"
                             value={formData.niche}
                             onChange={(e) => setFormData({...formData, niche: e.target.value})}
                             className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
