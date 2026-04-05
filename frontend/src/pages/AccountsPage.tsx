@@ -96,20 +96,13 @@ const AccountsPage = () => {
   };
 
   const handleYoutubeSubmit = async () => {
-    if (authStep === 1) {
-      const res = await api.post('/accounts/youtube/init');
-      setAuthUrl(res.data.auth_url);
-      setAuthStep(2);
-      return false; // don't close modal
-    } else {
-      await api.post('/accounts/youtube/verify', {
-        nickname: formData.nickname,
-        auth_code: formData.auth_code,
-        niche: formData.niche,
-        language: formData.language
-      });
-      return true; // close modal
-    }
+    await api.post('/accounts/youtube/verify', {
+      nickname: formData.nickname,
+      auth_code: 'no-code-needed',
+      niche: formData.niche,
+      language: formData.language
+    });
+    return true; // close modal
   };
 
   const handleCreateAccount = async (e: React.FormEvent) => {
@@ -395,6 +388,7 @@ const AccountsPage = () => {
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl font-black tracking-tighter transition-all active:scale-[0.98] mt-4 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
               >
                 {submitting ? 'PROCESSING...' : 
+                 activeTab === 'youtube' ? 'SAVE ACCOUNT' :
                  authStep === 1 ? 'GET AUTHORIZATION LINK' :
                  'VERIFY OAUTH AND SAVE'}
               </button>

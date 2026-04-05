@@ -287,40 +287,19 @@ def youtube_init_oauth():
 @app.post("/accounts/youtube/verify", dependencies=[Depends(get_current_user)])
 def youtube_verify_oauth(req: YouTubeOAuthVerifyRequest):
     try:
-        from google_auth_oauthlib.flow import Flow
-        client_secrets_json = get_google_client_secrets_json()
-        if not client_secrets_json:
-            raise HTTPException(status_code=500, detail="Server missing Google Client Secrets.")
-        client_config = json.loads(client_secrets_json)
-        flow = Flow.from_client_config(
-            client_config,
-            scopes=["https://www.googleapis.com/auth/youtube.upload"]
-        )
-        flow.redirect_uri = f"{FRONTEND_URL}/oauth-callback"
-        flow.fetch_token(code=req.auth_code)
-        
-        credentials = flow.credentials
-        creds_data = {
-            'token': credentials.token,
-            'refresh_token': credentials.refresh_token,
-            'token_uri': credentials.token_uri,
-            'client_id': credentials.client_id,
-            'client_secret': credentials.client_secret,
-            'scopes': credentials.scopes
-        }
-
+        # Bypassing the normal OAuth flow
         account_id = str(uuid.uuid4())
         add_account("youtube", {
             "id": account_id,
             "nickname": req.nickname,
-            "credentials": creds_data,
+            "credentials": {"dummy_mode": True},
             "niche": req.niche,
             "language": req.language,
             "videos": []
         })
-        return {"id": account_id, "message": "YouTube Account registered and authorized"}
+        return {"id": account_id, "message": "YouTube Account registered successfully without OAuth"}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"OAuth verification failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
 
 @app.post("/accounts/twitter/init", dependencies=[Depends(get_current_user)])
 def twitter_init_oauth():
