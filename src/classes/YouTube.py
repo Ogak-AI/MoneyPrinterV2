@@ -62,13 +62,8 @@ class YouTube:
         self.images = []
 
         try:
-            if credentials and credentials.get("dummy_mode"):
-                self.youtube_api = None
-                if get_verbose():
-                    info("YouTube API initialized in dummy mode. Uploads will be skipped.")
-            else:
-                creds = Credentials.from_authorized_user_info(credentials)
-                self.youtube_api = build("youtube", "v3", credentials=creds)
+            creds = Credentials.from_authorized_user_info(credentials)
+            self.youtube_api = build("youtube", "v3", credentials=creds)
         except Exception as e:
             raise ValueError(f"Failed to authenticate YouTube API: {e}")
 
@@ -683,20 +678,6 @@ class YouTube:
 
             if verbose:
                 info("\t=> Uploading video to YouTube API...")
-
-            if not self.youtube_api:
-                warning("YouTube API not authenticated (dummy mode). Skipping upload.")
-                # We can still add it to the DB with a local URL or mock URL
-                mock_url = f"file://{self.video_path}"
-                self.add_video(
-                    {
-                        "title": self.metadata["title"],
-                        "description": self.metadata["description"],
-                        "url": mock_url,
-                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    }
-                )
-                return True
 
             body = {
                 "snippet": {

@@ -96,13 +96,19 @@ const AccountsPage = () => {
   };
 
   const handleYoutubeSubmit = async () => {
-    await api.post('/accounts/youtube/verify', {
+    // Step 1: Get the Google OAuth URL from the backend
+    const res = await api.post('/accounts/youtube/init');
+    
+    // Step 2: Save form data so the callback page can complete the flow
+    sessionStorage.setItem('yt_oauth_data', JSON.stringify({
       nickname: formData.nickname,
-      auth_code: 'no-code-needed',
       niche: formData.niche,
       language: formData.language
-    });
-    return true; // close modal
+    }));
+    
+    // Step 3: Redirect user to Google OAuth (they authorize, Google redirects back automatically)
+    window.location.href = res.data.auth_url;
+    return false; // don't close modal — we're navigating away
   };
 
   const handleCreateAccount = async (e: React.FormEvent) => {
@@ -388,7 +394,7 @@ const AccountsPage = () => {
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl font-black tracking-tighter transition-all active:scale-[0.98] mt-4 shadow-lg shadow-emerald-600/20 disabled:opacity-50"
               >
                 {submitting ? 'PROCESSING...' : 
-                 activeTab === 'youtube' ? 'SAVE ACCOUNT' :
+                 activeTab === 'youtube' ? 'CONNECT WITH GOOGLE' :
                  authStep === 1 ? 'GET AUTHORIZATION LINK' :
                  'VERIFY OAUTH AND SAVE'}
               </button>

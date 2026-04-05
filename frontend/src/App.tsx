@@ -12,6 +12,7 @@ const ResetPasswordPage = React.lazy(() => import('./pages/ResetPasswordPage'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const AccountsPage = React.lazy(() => import('./pages/AccountsPage'));
 const TasksPage = React.lazy(() => import('./pages/TasksPage'));
+const OAuthCallbackPage = React.lazy(() => import('./pages/OAuthCallbackPage'));
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isInitialized } = useAuthStore();
@@ -185,6 +186,14 @@ function App() {
       <Route path="/tasks" element={
         <ProtectedRoute>
           <Layout><TasksPage /></Layout>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/oauth-callback" element={
+        <ProtectedRoute>
+          <React.Suspense fallback={null}>
+            <OAuthCallbackPage />
+          </React.Suspense>
         </ProtectedRoute>
       } />
       
