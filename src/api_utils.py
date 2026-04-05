@@ -76,11 +76,22 @@ def update_task(task_id: str, status: str, message: str, result: Dict[str, Any] 
     tasks[task_id] = task_data
     _save_json(TASKS_FILE, tasks)
     
-    # Trigger real-time WebSocket updates
-    asyncio.create_task(manager.broadcast_task_update(task_id, task_data))
-    
-    # Trigger webhooks on status change
-    asyncio.create_task(dispatch_webhooks(f"task.{status}", task_data))
+    # Trigger real-time WebSocket and webhook updates safely from any thread
+    try:
+        loop = asyncio.get_running_loop()
+        # We're inside an async context — use create_task directly
+        loop.create_task(manager.broadcast_task_update(task_id, task_data))
+        loop.create_task(dispatch_webhooks(f"task.{status}", task_data))
+    except RuntimeError:
+        # No running loop on this thread (sync endpoint in threadpool).
+        # Schedule onto the main event loop instead.
+        try:
+            loop = asyncio.get_event_loop()
+            asyncio.run_coroutine_threadsafe(manager.broadcast_task_update(task_id, task_data), loop)
+            asyncio.run_coroutine_threadsafe(dispatch_webhooks(f"task.{status}", task_data), loop)
+        except Exception:
+            # Silently skip if there's no event loop at all (e.g. during tests)
+            pass
 
 def get_task(task_id: str) -> Dict[str, Any]:
     return get_tasks().get(task_id)
