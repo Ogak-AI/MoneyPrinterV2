@@ -130,8 +130,9 @@ const TasksPage = () => {
 
             {provider === 'youtube' ? (
               <div>
-                <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3">Niche Protocol (Optional)</label>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-3">Niche Protocol</label>
                 <input
+                  required
                   type="text"
                   value={niche}
                   onChange={(e) => setNiche(e.target.value)}

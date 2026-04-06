@@ -25,7 +25,7 @@ class AccountResponse(BaseModel):
 
 class YouTubeGenerateRequest(BaseModel):
     account_id: str
-    niche: Optional[str] = None
+    niche: str
     language: Optional[str] = None
     upload: bool = False
     webhook_url: Optional[str] = None

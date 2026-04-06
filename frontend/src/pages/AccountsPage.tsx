@@ -348,8 +348,9 @@ const AccountsPage = () => {
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Niche Protocol (Optional)</label>
+                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Niche Protocol</label>
                           <input
+                            required
                             type="text"
                             placeholder="e.g. Finance"
                             value={formData.niche}
