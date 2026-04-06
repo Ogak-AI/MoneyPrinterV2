@@ -393,7 +393,8 @@ async def run_youtube_task(task_id: str, req: YouTubeGenerateRequest):
             update_task(task_id, "failed", f"Account {req.account_id} not found")
             return
 
-        yt = YouTube(
+        yt = await asyncio.to_thread(
+            YouTube,
             account_uuid=account["id"],
             account_nickname=account["nickname"],
             credentials=account["credentials"],
@@ -403,13 +404,13 @@ async def run_youtube_task(task_id: str, req: YouTubeGenerateRequest):
         
         update_task(task_id, "running", "Generating video content...")
         tts = TTS()
-        video_path = yt.generate_video(tts)
+        video_path = await asyncio.to_thread(yt.generate_video, tts)
         
         result = {"video_path": video_path}
         
         if req.upload:
             update_task(task_id, "running", "Uploading video to YouTube...")
-            success = yt.upload_video()
+            success = await asyncio.to_thread(yt.upload_video)
             result["uploaded"] = success
         
         update_task(task_id, "completed", "Task finished successfully", result)
@@ -436,7 +437,7 @@ async def run_twitter_task(task_id: str, req: TwitterPostRequest):
         )
         
         update_task(task_id, "running", "Posting to Twitter...")
-        tw.post(text=req.text)
+        await asyncio.to_thread(tw.post, text=req.text)
         
         update_task(task_id, "completed", "Tweet posted successfully")
     except Exception as e:
@@ -451,7 +452,8 @@ async def run_afm_task(task_id: str, req: AFMCampaignRequest):
             update_task(task_id, "failed", f"Twitter Account {req.twitter_account_id} not found")
             return
 
-        afm = AffiliateMarketing(
+        afm = await asyncio.to_thread(
+            AffiliateMarketing,
             req.affiliate_link,
             account["id"],
             account["nickname"],
@@ -463,8 +465,8 @@ async def run_afm_task(task_id: str, req: AFMCampaignRequest):
         )
         
         update_task(task_id, "running", "Generating and sharing pitch...")
-        afm.generate_pitch()
-        afm.share_pitch("twitter")
+        await asyncio.to_thread(afm.generate_pitch)
+        await asyncio.to_thread(afm.share_pitch, "twitter")
         
         update_task(task_id, "completed", "Affiliate campaign run successfully")
     except Exception as e:
@@ -473,23 +475,28 @@ async def run_afm_task(task_id: str, req: AFMCampaignRequest):
 @app.post("/tasks/youtube/generate", response_model=TaskResponse, dependencies=[Depends(get_current_user)])
 def generate_youtube_video(req: YouTubeGenerateRequest, bg: BackgroundTasks):
     task_id = str(uuid.uuid4())
-    update_task(task_id, "queued", "Task added to queue", webhook_url=req.webhook_url)
+    update_task(task_id, "queued", "Task added to queue", webhook_url=req.webhook_url, provider="youtube")
     bg.add_task(run_youtube_task, task_id, req)
     return TaskResponse(task_id=task_id, status="queued", message="Task started in background")
 
 @app.post("/tasks/twitter/post", response_model=TaskResponse, dependencies=[Depends(get_current_user)])
 def post_to_twitter(req: TwitterPostRequest, bg: BackgroundTasks):
     task_id = str(uuid.uuid4())
-    update_task(task_id, "queued", "Task added to queue", webhook_url=req.webhook_url)
+    update_task(task_id, "queued", "Task added to queue", webhook_url=req.webhook_url, provider="twitter")
     bg.add_task(run_twitter_task, task_id, req)
     return TaskResponse(task_id=task_id, status="queued", message="Task started in background")
 
 @app.post("/tasks/afm/run", response_model=TaskResponse, dependencies=[Depends(get_current_user)])
 def run_afm_campaign(req: AFMCampaignRequest, bg: BackgroundTasks):
     task_id = str(uuid.uuid4())
-    update_task(task_id, "queued", "Task added to queue", webhook_url=req.webhook_url)
+    update_task(task_id, "queued", "Task added to queue", webhook_url=req.webhook_url, provider="afm")
     bg.add_task(run_afm_task, task_id, req)
     return TaskResponse(task_id=task_id, status="queued", message="Task started in background")
+
+@app.get("/tasks", response_model=List[TaskResponse], dependencies=[Depends(get_current_user)])
+def list_tasks():
+    tasks_dict = get_tasks()
+    return [TaskResponse(task_id=tid, **tdata) for tid, tdata in tasks_dict.items()]
 
 @app.get("/tasks/{task_id}", response_model=TaskResponse, dependencies=[Depends(get_current_user)])
 def get_task_status(task_id: str):

@@ -44,6 +44,7 @@ class TaskResponse(BaseModel):
     task_id: str
     status: str
     message: str
+    provider: Optional[str] = None
     result: Optional[Dict[str, Any]] = None
 
 class WebhookSubscription(BaseModel):

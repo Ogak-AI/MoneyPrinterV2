@@ -59,19 +59,24 @@ def _save_json(file_path: str, data: Any):
 def get_tasks() -> Dict[str, Any]:
     return _load_json(TASKS_FILE, {})
 
-def update_task(task_id: str, status: str, message: str, result: Dict[str, Any] = None, webhook_url: str = None):
+def update_task(task_id: str, status: str, message: str, result: Dict[str, Any] = None, webhook_url: str = None, provider: str = None):
     tasks = get_tasks()
     
-    # If task already exists, preserve its existing webhook_url unless a new one is provided
-    existing_webhook_url = tasks.get(task_id, {}).get("webhook_url")
+    # If task already exists, preserve its existing webhook_url and provider unless new ones are provided
+    existing = tasks.get(task_id, {})
+    existing_webhook_url = existing.get("webhook_url")
+    existing_provider = existing.get("provider")
+    
     final_webhook_url = webhook_url or existing_webhook_url
+    final_provider = provider or existing_provider
     
     task_data = {
         "status": status,
         "message": message,
         "result": result,
         "updated_at": datetime.now().isoformat(),
-        "webhook_url": final_webhook_url
+        "webhook_url": final_webhook_url,
+        "provider": final_provider
     }
     tasks[task_id] = task_data
     _save_json(TASKS_FILE, tasks)

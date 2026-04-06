@@ -42,8 +42,42 @@ const TasksPage = () => {
         console.error('Failed to fetch accounts', err);
       }
     };
+
+    const fetchTasks = async () => {
+      try {
+        const response = await api.get('/tasks');
+        // Sort by id or date if available, but for now just reverse to show latest first
+        setTasks(response.data.reverse());
+      } catch (err) {
+        console.error('Failed to fetch tasks', err);
+      }
+    };
+
     fetchAccounts();
+    fetchTasks();
   }, []);
+
+  // Polling for active tasks
+  useEffect(() => {
+    const activeTasks = tasks.filter(t => t.status === 'queued' || t.status === 'running');
+    if (activeTasks.length === 0) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await api.get('/tasks');
+        const updatedTasks = response.data as Task[];
+        
+        setTasks(prev => {
+          const map = new Map<string, Task>(updatedTasks.map(t => [t.task_id, t]));
+          return prev.map(t => map.get(t.task_id) || t);
+        });
+      } catch (err) {
+        console.error('Polling failed', err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [tasks]);
 
   const handleRunTask = async (e: React.FormEvent) => {
     e.preventDefault();
