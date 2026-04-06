@@ -54,7 +54,10 @@ def _generate_gemini(prompt: str) -> str:
     """
     api_key = get_nanobanana2_api_key()
     if not api_key:
-        raise RuntimeError("No LLM provider available. Please configure Ollama or Gemini.")
+        raise RuntimeError(
+            "No LLM provider available. Please configure 'ollama_model' in config.json "
+            "OR set 'GEMINI_API_KEY' in your environment variables (e.g., in Render dashboard)."
+        )
 
     base_url = get_nanobanana2_api_base_url().rstrip("/")
     # Using the same model as for images, or defaulting to a text-capable one

@@ -1,10 +1,9 @@
-import os
-import json
-import uuid
-import asyncio
-import schedule
 import subprocess
 import requests as http_requests
+from dotenv import load_dotenv
+
+# Load environment variables from .env and .env.local
+load_dotenv()
 from functools import lru_cache
 from fastapi import FastAPI, BackgroundTasks, Header, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,6 +52,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "https://moneyprinterv2-ahg9t61yn-ogak-ais-projects.vercel.app",
+        "https://moneyprinter-v2-*.vercel.app",
         FRONTEND_URL,
         "*"
     ],

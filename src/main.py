@@ -1,7 +1,8 @@
-import os
-import warnings
-import schedule
 import subprocess
+from dotenv import load_dotenv
+
+# Load environment variables from .env and .env.local
+load_dotenv()
 
 # Suppress HF Hub unauthenticated warnings
 warnings.filterwarnings("ignore", message=".*unauthenticated requests to the HF Hub.*")
