@@ -1,5 +1,10 @@
+import os
+import warnings
 import schedule
 import subprocess
+
+# Suppress HF Hub unauthenticated warnings
+warnings.filterwarnings("ignore", message=".*unauthenticated requests to the HF Hub.*")
 
 from art import *
 from cache import *
@@ -446,6 +451,11 @@ if __name__ == "__main__":
 
     # Setup file tree
     assert_folder_structure()
+
+    # Set HF_TOKEN if available
+    hf_token = get_hf_token()
+    if hf_token:
+        os.environ["HF_TOKEN"] = hf_token
 
     # Remove temporary files
     rem_temp_files()

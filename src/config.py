@@ -461,3 +461,13 @@ def get_twitter_api_secret() -> str:
     if env_value:
         return env_value
     return str(_get_config().get("twitter_api_secret", "")).strip()
+
+
+def get_hf_token() -> str:
+    """
+    Gets the Hugging Face API token.
+    """
+    env_value = os.environ.get("HF_TOKEN", "").strip()
+    if env_value:
+        return env_value
+    return str(_get_config().get("hf_token", "")).strip()
