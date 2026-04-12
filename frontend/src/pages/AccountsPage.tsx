@@ -24,9 +24,6 @@ const AccountsPage = () => {
   
   // Form Data
   const [formData, setFormData] = useState({
-    nickname: '',
-    niche: '',
-    language: 'English',
     topic: '',
     auth_code: '',
     oauth_token: '',
@@ -64,9 +61,6 @@ const AccountsPage = () => {
 
   const resetForm = () => {
     setFormData({
-      nickname: '',
-      niche: '',
-      language: 'English',
       topic: '',
       auth_code: '',
       oauth_token: '',
@@ -85,7 +79,7 @@ const AccountsPage = () => {
       return false;
     } else {
       await api.post('/accounts/twitter/verify', {
-        nickname: formData.nickname,
+        nickname: formData.topic || 'Twitter Account',
         topic: formData.topic,
         pin: formData.auth_code,
         oauth_token: formData.oauth_token,
@@ -101,9 +95,9 @@ const AccountsPage = () => {
     
     // Step 2: Save form data so the callback page can complete the flow
     sessionStorage.setItem('yt_oauth_data', JSON.stringify({
-      nickname: formData.nickname,
-      niche: formData.niche,
-      language: formData.language,
+      nickname: 'YouTube Channel',
+      niche: 'General',
+      language: 'English',
       code_verifier: res.data.code_verifier
     }));
     
@@ -330,63 +324,21 @@ const AccountsPage = () => {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 gap-6">
+                  {activeTab === 'twitter' && (
                     <div>
-                      <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Account Nickname</label>
+                      <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Tweet Topic</label>
                       <input
                         required
                         type="text"
-                        placeholder="e.g. Main Channel / My Handle"
-                        value={formData.nickname}
-                        onChange={(e) => setFormData({...formData, nickname: e.target.value})}
+                        placeholder="e.g. AI News, Finance, Crypto..."
+                        value={formData.topic}
+                        onChange={(e) => setFormData({...formData, topic: e.target.value})}
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
                       />
-                    </div>
-                  </div>
-
-                  {activeTab === 'youtube' ? (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Niche Protocol</label>
-                          <input
-                            required
-                            type="text"
-                            placeholder="e.g. Finance"
-                            value={formData.niche}
-                            onChange={(e) => setFormData({...formData, niche: e.target.value})}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Language</label>
-                          <input
-                            required
-                            type="text"
-                            placeholder="English"
-                            value={formData.language}
-                            onChange={(e) => setFormData({...formData, language: e.target.value})}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2 ml-1">Topic</label>
-                        <input
-                          required
-                          type="text"
-                          placeholder="e.g. AI News"
-                          value={formData.topic}
-                          onChange={(e) => setFormData({...formData, topic: e.target.value})}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:border-emerald-500 outline-none transition-all placeholder:text-zinc-800"
-                        />
-                      </div>
+                      <p className="text-[10px] text-zinc-600 mt-2 ml-1">Used to auto-generate tweet content with AI</p>
                     </div>
                   )}
-                </>
+              </>
               )}
 
               <button
