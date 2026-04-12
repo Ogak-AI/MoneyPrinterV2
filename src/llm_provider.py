@@ -50,8 +50,11 @@ def get_active_model() -> str | None:
 
 def _generate_gemini(prompt: str) -> str:
     """
-    Generates text using the Gemini API (Nano Banana 2).
+    Generates text using the Gemini API with automatic retry on rate limits.
+    Retries up to 3 times with exponential backoff (2s, 4s, 8s).
     """
+    import time
+
     api_key = get_nanobanana2_api_key()
     if not api_key:
         raise RuntimeError(
@@ -60,23 +63,32 @@ def _generate_gemini(prompt: str) -> str:
         )
 
     base_url = get_nanobanana2_api_base_url().rstrip("/")
-    # Using the same model as for images, or defaulting to a text-capable one
     model = get_nanobanana2_model()
-    # Gemini models for text generation usually have 'pro' or similar suffix, but let's try 
-    # to guess or use the preview one which often supports multimodal.
-    
+
     endpoint = f"{base_url}/models/{model}:generateContent"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}]
     }
 
-    response = requests.post(
-        endpoint,
-        headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-        json=payload,
-        timeout=60,
-    )
-    response.raise_for_status()
+    max_retries = 3
+    for attempt in range(max_retries + 1):
+        response = requests.post(
+            endpoint,
+            headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+            json=payload,
+            timeout=60,
+        )
+
+        if response.status_code == 429 and attempt < max_retries:
+            wait = 2 ** (attempt + 1)  # 2s, 4s, 8s
+            from status import warning
+            warning(f"Gemini rate-limited (429). Retrying in {wait}s... (attempt {attempt + 1}/{max_retries})")
+            time.sleep(wait)
+            continue
+
+        response.raise_for_status()
+        break
+
     body = response.json()
 
     candidates = body.get("candidates", [])
