@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env and .env.local
 load_dotenv()
+import threading
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from fastapi import FastAPI, BackgroundTasks, Header, HTTPException, Depends, WebSocket, WebSocketDisconnect, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,11 +39,35 @@ from email_utils import send_password_reset_email
 import json
 from datetime import datetime, timedelta
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application startup/shutdown lifecycle manager."""
+    # ── Startup ──────────────────────────────────────────────────────
+    init_db()
+    assert_folder_structure()
+    rem_temp_files()
+
+    # Run fetch_songs in a background thread to avoid blocking Uvicorn's port binding
+    threading.Thread(target=fetch_songs, daemon=True).start()
+
+    # Select default Ollama model if configured
+    model = get_ollama_model()
+    if model:
+        select_model(model)
+
+    # Start scheduler background task
+    apply_schedules()
+    asyncio.create_task(scheduler_loop())
+
+    yield  # application is now running
+    # ── Shutdown (add cleanup here if needed) ─────────────────────────
+
 app = FastAPI(
     title="MoneyPrinterV2 API",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # DB is initialized in the startup_event handler below
@@ -50,15 +76,19 @@ app = FastAPI(
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173") or "http://localhost:5173"
 FRONTEND_URL = FRONTEND_URL.rstrip("/")
 
+# Build explicit origins list — do NOT include bare '*' alongside allow_credentials=True
+# (browsers reject credentialed requests to wildcard origins)
+_ALLOWED_ORIGINS = list({
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://moneyprinterv2-ahg9t61yn-ogak-ais-projects.vercel.app",
+    FRONTEND_URL,
+})
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "https://moneyprinterv2-ahg9t61yn-ogak-ais-projects.vercel.app",
-        "https://moneyprinter-v2-*.vercel.app",
-        FRONTEND_URL,
-        "*"
-    ],
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://moneyprinter-v2-.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -120,24 +150,7 @@ def verify_api_key(x_api_key: str = Header(None)):
         raise HTTPException(status_code=403, detail="Invalid API Key")
     return x_api_key
 
-@app.on_event("startup")
-async def startup_event():
-    init_db()
-    assert_folder_structure()
-    rem_temp_files()
-    
-    # Run fetch_songs in a background thread to prevent blocking Uvicorn's port binding on Render
-    import threading
-    threading.Thread(target=fetch_songs, daemon=True).start()
-
-    # Select default model if configured
-    model = get_ollama_model()
-    if model:
-        select_model(model)
-    
-    # Start scheduler
-    apply_schedules()
-    asyncio.create_task(scheduler_loop())
+# Startup logic is handled by the lifespan context manager above
 
 @app.get("/")
 def read_root():

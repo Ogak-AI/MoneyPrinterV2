@@ -2,6 +2,8 @@ wheel
 termcolor
 schedule
 requests
+# kittentts requires Python <3.13 (via misaki dependency).
+# Ensure you use a Python 3.12 venv: pyenv local 3.12 && python -m venv venv
 kittentts @ https://github.com/KittenML/KittenTTS/releases/download/0.8.1/kittentts-0.8.1-py3-none-any.whl
 soundfile
 prettytable
