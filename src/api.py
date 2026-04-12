@@ -1,4 +1,8 @@
+import os
+import asyncio
+import uuid
 import subprocess
+import schedule
 import requests as http_requests
 from dotenv import load_dotenv
 
@@ -40,8 +44,7 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Ensure DB is initialized immediately on load
-init_db()
+# DB is initialized in the startup_event handler below
 
 # Use environment variable for frontend URL, with fallbacks for development and your specific Vercel URL
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173") or "http://localhost:5173"

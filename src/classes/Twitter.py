@@ -91,19 +91,29 @@ class Twitter:
         return []
 
     def add_post(self, post: dict) -> None:
-        """Adds a post to the cache."""
-        posts = self.get_posts()
-        posts.append(post)
+        """Adds a post to the cache (single read-modify-write to avoid duplicates)."""
+        cache_path = get_twitter_cache_path()
+        with open(cache_path, "r") as file:
+            data = json.loads(file.read())
 
-        with open(get_twitter_cache_path(), "r") as file:
-            previous_json = json.loads(file.read())
-            accounts = previous_json["accounts"]
-            for account in accounts:
-                if account["id"] == self.account_uuid:
-                    account["posts"].append(post)
+        account_found = False
+        for account in data.get("accounts", []):
+            if account["id"] == self.account_uuid:
+                if not isinstance(account.get("posts"), list):
+                    account["posts"] = []
+                account["posts"].append(post)
+                account_found = True
+                break
 
-            with open(get_twitter_cache_path(), "w") as f:
-                f.write(json.dumps(previous_json))
+        # If account isn't in cache yet, add it with this first post
+        if not account_found:
+            data.setdefault("accounts", []).append({
+                "id": self.account_uuid,
+                "posts": [post]
+            })
+
+        with open(cache_path, "w") as file:
+            file.write(json.dumps(data))
 
     def generate_post(self) -> str:
         """Generates a post for the Twitter account based on the topic."""

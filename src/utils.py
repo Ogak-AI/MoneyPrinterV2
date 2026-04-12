@@ -55,11 +55,18 @@ def rem_temp_files() -> None:
     # Path to the `.mp` directory
     mp_dir = os.path.join(ROOT_DIR, ".mp")
 
+    # Guard: directory may not exist yet on a fresh install
+    if not os.path.exists(mp_dir):
+        return
+
     files = os.listdir(mp_dir)
 
     for file in files:
         if not file.endswith(".json"):
-            os.remove(os.path.join(mp_dir, file))
+            try:
+                os.remove(os.path.join(mp_dir, file))
+            except OSError:
+                pass
 
 
 def fetch_songs() -> None:
