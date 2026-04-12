@@ -219,20 +219,15 @@ app = FastAPI(
 )
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
-# Do NOT add bare "*" alongside allow_credentials=True — browsers will block it.
-
-_ALLOWED_ORIGINS = list({
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://moneyprinterv2-ahg9t61yn-ogak-ais-projects.vercel.app",
-    FRONTEND_URL,
-})
+# Auth uses Bearer tokens in the Authorization header — NOT cookies.
+# Therefore allow_credentials=True is not required, and we can safely use
+# allow_origins=["*"] so that OPTIONS preflights always pass regardless of
+# which Vercel preview URL or custom domain the frontend is served from.
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_ALLOWED_ORIGINS,
-    allow_origin_regex=r"https://moneyprinter-v2-.*\.vercel\.app",
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
