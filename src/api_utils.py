@@ -101,6 +101,15 @@ def update_task(task_id: str, status: str, message: str, result: Dict[str, Any] 
 def get_task(task_id: str) -> Dict[str, Any]:
     return get_tasks().get(task_id)
 
+def delete_task_record(task_id: str) -> bool:
+    """Remove a task from the task store. Returns True if it existed, False otherwise."""
+    tasks = get_tasks()
+    if task_id not in tasks:
+        return False
+    del tasks[task_id]
+    _save_json(TASKS_FILE, tasks)
+    return True
+
 def get_webhooks() -> List[Dict[str, Any]]:
     return _load_json(WEBHOOKS_FILE, [])
 
