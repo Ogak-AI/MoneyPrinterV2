@@ -165,7 +165,10 @@ def get_nanobanana2_model() -> str:
     Returns:
         model (str): Model name
     """
-    return _get_config().get("nanobanana2_model", "gemini-3.1-flash-image-preview")
+    env_value = os.environ.get("GEMINI_MODEL", "").strip()
+    if env_value:
+        return env_value
+    return _get_config().get("nanobanana2_model", "gemini-1.5-flash")
 
 def get_nanobanana2_aspect_ratio() -> str:
     """
