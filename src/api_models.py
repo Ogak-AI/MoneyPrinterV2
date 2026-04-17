@@ -2,7 +2,7 @@
 MoneyPrinter API — Pydantic request/response models.
 All Field() annotations feed directly into the OpenAPI /docs UI.
 """
-from pydantic import BaseModel, Field, AnyHttpUrl
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Literal
 
 

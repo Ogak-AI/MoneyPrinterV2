@@ -1,6 +1,4 @@
-import os
 from urllib.parse import urlparse
-from typing import Any
 import requests
 from bs4 import BeautifulSoup
 

@@ -1,6 +1,5 @@
 import ollama
 import requests
-import json
 
 from config import (
     get_ollama_base_url,

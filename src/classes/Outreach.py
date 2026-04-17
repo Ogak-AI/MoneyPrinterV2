@@ -57,7 +57,7 @@ class Outreach:
         try:
             subprocess.call(["go", "version"])
             return True
-        except Exception as e:
+        except Exception:
             return False
 
     def unzip_file(self, zip_link: str) -> None:

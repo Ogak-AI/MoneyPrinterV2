@@ -29,8 +29,7 @@ import requests as http_requests
 from dotenv import load_dotenv
 
 from fastapi import (
-    FastAPI, BackgroundTasks, Header,
-    HTTPException, Depends, WebSocket, WebSocketDisconnect,
+    FastAPI, BackgroundTasks, HTTPException, Depends, WebSocket, WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer

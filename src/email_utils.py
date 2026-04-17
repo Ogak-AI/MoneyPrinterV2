@@ -1,6 +1,5 @@
 import os
 import httpx
-from config import ROOT_DIR
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
