@@ -312,6 +312,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
 
 # ── General ────────────────────────────────────────────────────────────────────
 
+@app.head("/", include_in_schema=False)
 @app.get(
     "/",
     tags=["General"],
@@ -328,6 +329,7 @@ def read_root():
     }
 
 
+@app.head("/health", include_in_schema=False)
 @app.get(
     "/health",
     tags=["General"],
