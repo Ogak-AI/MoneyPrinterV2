@@ -12,6 +12,8 @@
   "nanobanana2_api_key": "",
   "nanobanana2_model": "gemini-2.0-flash",
   "nanobanana2_aspect_ratio": "9:16",
+  "groq_api_key": "",
+  "groq_model": "llama3-8b-8192",
   "threads": 2,
   "zip_url": "",
   "is_for_kids": false,

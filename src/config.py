@@ -170,6 +170,28 @@ def get_nanobanana2_model() -> str:
         return env_value
     return _get_config().get("nanobanana2_model", "gemini-1.5-flash")
 
+def get_groq_api_key() -> str:
+    """
+    Gets the Groq API key.
+
+    Returns:
+        key (str): API key
+    """
+    configured = _get_config().get("groq_api_key", "")
+    return configured or os.environ.get("GROQ_API_KEY", "")
+
+def get_groq_model() -> str:
+    """
+    Gets the Groq model name.
+
+    Returns:
+        model (str): Model name
+    """
+    env_value = os.environ.get("GROQ_MODEL", "").strip()
+    if env_value:
+        return env_value
+    return _get_config().get("groq_model", "llama3-8b-8192")
+
 def get_nanobanana2_aspect_ratio() -> str:
     """
     Gets the aspect ratio for Nano Banana 2 image generation.

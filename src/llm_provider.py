@@ -7,6 +7,8 @@ from config import (
     get_nanobanana2_api_key,
     get_nanobanana2_api_base_url,
     get_nanobanana2_model,
+    get_groq_api_key,
+    get_groq_model,
 )
 
 _selected_model: str | None = None
@@ -46,6 +48,39 @@ def get_active_model() -> str | None:
     Returns the currently selected model, or None if none has been selected.
     """
     return _selected_model
+
+
+def _generate_groq(prompt: str) -> str:
+    """
+    Generates text using the Groq API.
+    """
+    api_key = get_groq_api_key()
+    if not api_key:
+        raise RuntimeError("Groq API key not configured.")
+        
+    model = get_groq_model()
+    
+    endpoint = "https://api.groq.com/openai/v1/chat/completions"
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}]
+    }
+    
+    response = requests.post(
+        endpoint,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json=payload,
+        timeout=60,
+    )
+    
+    response.raise_for_status()
+    body = response.json()
+    
+    choices = body.get("choices", [])
+    if not choices:
+        raise RuntimeError(f"Groq API returned no choices: {body}")
+        
+    return choices[0].get("message", {}).get("content", "").strip()
 
 
 def _generate_gemini(prompt: str) -> str:
@@ -126,7 +161,15 @@ def generate_text(prompt: str, model_name: str = None) -> str:
         except Exception as e:
             # If Ollama is configured but fails (e.g. server down), we log and try fallback
             from status import warning
-            warning(f"Ollama generation failed: {e}. Attempting fallback to Gemini...")
+            warning(f"Ollama generation failed: {e}. Attempting fallback...")
+
+    # Try Groq if configured
+    if get_groq_api_key():
+        try:
+            return _generate_groq(prompt)
+        except Exception as e:
+            from status import warning
+            warning(f"Groq generation failed: {e}. Attempting fallback to Gemini...")
 
     # Fallback to Gemini
     return _generate_gemini(prompt)
