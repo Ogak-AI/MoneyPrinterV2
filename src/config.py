@@ -90,27 +90,6 @@ def get_verbose() -> bool:
     """
     return _get_config().get("verbose", True)
 
-def get_firefox_profile_path() -> str:
-    """
-    Gets the path to the Firefox profile.
-
-    Returns:
-        path (str): The path to the Firefox profile
-    """
-    return _get_config().get("firefox_profile", "")
-
-def get_headless() -> bool:
-    """
-    Gets the headless flag from the config file.
-
-    Returns:
-        headless (bool): The headless flag
-    """
-    # Force headless on Hugging Face
-    if os.environ.get("HF_SPACE_ID"):
-        return True
-    return _get_config().get("headless", False)
-
 def get_ollama_base_url() -> str:
     """
     Gets the Ollama base URL.

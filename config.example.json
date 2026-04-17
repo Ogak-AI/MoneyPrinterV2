@@ -1,7 +1,5 @@
 {
   "verbose": true,
-  "firefox_profile": "",
-  "headless": false,
   "google_client_secrets_json": "",
   "twitter_api_key": "",
   "twitter_api_secret": "",
